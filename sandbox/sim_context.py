@@ -100,8 +100,21 @@ class SimContext(RobotContext):
             if self.by > self.height - 12: self.by = self.height - 12; self.b_vy *= -0.8
 
         # 2. Actualizar Física del robot según los motores
-        robot_v_x = self.motors.v_forward * math.cos(self.rangle)
-        robot_v_y = self.motors.v_forward * math.sin(self.rangle)
+        
+        # Vector Dirección Frontal (Adelante)
+        f_x = math.cos(self.rangle)
+        f_y = math.sin(self.rangle)
+        
+        # Producto Cruz 2D para vectores laterales (Ortogonales)
+        # Vector Derecha: Rotar el vector frontal +90 grados (en Pygame +Y es abajo)
+        # Forma matemática: (-y, x)
+        r_x = -f_y
+        r_y = f_x
+        
+        # La forma matemática contraria (y, -x) te daría el vector izquierdo.
+        # Nosotros usamos sólo el derecho, multiplicándolo por la velocidad lateral (positiva = der, negativa = izq)
+        robot_v_x = (f_x * self.motors.v_forward) + (r_x * self.motors.v_lateral)
+        robot_v_y = (f_y * self.motors.v_forward) + (r_y * self.motors.v_lateral)
         
         self.rangle += self.motors.v_turn
         self.rx += robot_v_x

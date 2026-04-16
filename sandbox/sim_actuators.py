@@ -8,10 +8,12 @@ class MockMotorController:
 
     def __init__(self, calib=None):
         self.v_forward = 0.0
+        self.v_lateral = 0.0
         self.v_turn = 0.0
 
     def _reset_speeds(self):
         self.v_forward = 0.0
+        self.v_lateral = 0.0
         self.v_turn = 0.0
 
     def stop(self):
@@ -26,10 +28,12 @@ class MockMotorController:
         self.v_forward = -self.FORWARD_SPEED
 
     def lateral_derecha(self, vel=None):
-        pass
+        self._reset_speeds()
+        self.v_lateral = self.FORWARD_SPEED
 
     def lateral_izquierda(self, vel=None):
-        pass
+        self._reset_speeds()
+        self.v_lateral = -self.FORWARD_SPEED
 
     def girar_derecha(self, vel=None):
         self._reset_speeds()

@@ -1,4 +1,28 @@
-import RPi.GPIO as GPIO
+try:
+    import RPi.GPIO as GPIO
+except ImportError:
+    # Soporte para ejecutar en Windows/Mac (Simulador) sin crashear por falta de la librería RPi
+    class MockGPIO:
+        BCM = 'BCM'
+        OUT = 'OUT'
+        HIGH = 1
+        LOW = 0
+        @staticmethod
+        def setmode(mode): pass
+        @staticmethod
+        def setwarnings(flag): pass
+        @staticmethod
+        def setup(pin, mode): pass
+        @staticmethod
+        def output(pin, state): pass
+        @staticmethod
+        def cleanup(): pass
+        class PWM:
+            def __init__(self, pin, freq): pass
+            def start(self, dc): pass
+            def ChangeDutyCycle(self, dc): pass
+            def stop(self): pass
+    GPIO = MockGPIO()
 
 
 # ── Pines ────────────────────────────────────────────────────────────────────
@@ -16,7 +40,22 @@ class MotorController:
     SLOW_TURN    = 30
     FORWARD_SLOW = 60
 
-    def __init__(self):
+    def __init__(self, calib=None):
+        """
+        calib: Diccionario con factores de calibración por tipo de movimiento.
+        Ejemplo: {"fwd": (1.0, 0.95, 1.0, 0.95), "turn_r": (0.8, 1.0, 0.8, 1.0)}
+        """
+        self.calib = {
+            "fwd": (1.0, 1.0, 1.0, 1.0),
+            "bwd": (1.0, 1.0, 1.0, 1.0),
+            "left": (1.0, 1.0, 1.0, 1.0),
+            "right": (1.0, 1.0, 1.0, 1.0),
+            "turn_l": (1.0, 1.0, 1.0, 1.0),
+            "turn_r": (1.0, 1.0, 1.0, 1.0)
+        }
+        if calib:
+            self.calib.update(calib)
+
         GPIO.setmode(GPIO.BCM)
         GPIO.setwarnings(False)
 
@@ -60,24 +99,47 @@ class MotorController:
 
     def adelante_lento(self):
         v = self.FORWARD_SLOW
-        self._fwd(M1_IN1, M1_IN2, self.pwm1, v)
-        self._fwd(M2_IN1, M2_IN2, self.pwm2, v)
-        self._fwd(M3_IN1, M3_IN2, self.pwm3, v)
-        self._fwd(M4_IN1, M4_IN2, self.pwm4, v)
+        c = self.calib["fwd"]
+        self._fwd(M1_IN1, M1_IN2, self.pwm1, v * c[0])
+        self._fwd(M2_IN1, M2_IN2, self.pwm2, v * c[1])
+        self._fwd(M3_IN1, M3_IN2, self.pwm3, v * c[2])
+        self._fwd(M4_IN1, M4_IN2, self.pwm4, v * c[3])
+
+    def atras(self, vel=None):
+        v = vel or self.FORWARD_SLOW
+        c = self.calib["bwd"]
+        self._bwd(M1_IN1, M1_IN2, self.pwm1, v * c[0])
+        self._bwd(M2_IN1, M2_IN2, self.pwm2, v * c[1])
+        self._bwd(M3_IN1, M3_IN2, self.pwm3, v * c[2])
+        self._bwd(M4_IN1, M4_IN2, self.pwm4, v * c[3])
+
+    def lateral_derecha(self, vel=None):
+        v = vel or self.FORWARD_SLOW
+        c = self.calib["right"]
+        # TODO: Ajustar cinemática omnidireccional para derecha
+        pass
+
+    def lateral_izquierda(self, vel=None):
+        v = vel or self.FORWARD_SLOW
+        c = self.calib["left"]
+        # TODO: Ajustar cinemática omnidireccional para izquierda
+        pass
 
     def girar_derecha(self, vel=None):
         v = vel or self.TURN_VEL
-        self._fwd(M1_IN1, M1_IN2, self.pwm1, v)
-        self._fwd(M2_IN1, M2_IN2, self.pwm2, v)
-        self._bwd(M3_IN1, M3_IN2, self.pwm3, v)
-        self._bwd(M4_IN1, M4_IN2, self.pwm4, v)
+        c = self.calib["turn_r"]
+        self._fwd(M1_IN1, M1_IN2, self.pwm1, v * c[0])
+        self._fwd(M2_IN1, M2_IN2, self.pwm2, v * c[1])
+        self._bwd(M3_IN1, M3_IN2, self.pwm3, v * c[2])
+        self._bwd(M4_IN1, M4_IN2, self.pwm4, v * c[3])
 
     def girar_izquierda(self, vel=None):
         v = vel or self.TURN_VEL
-        self._bwd(M1_IN1, M1_IN2, self.pwm1, v)
-        self._bwd(M2_IN1, M2_IN2, self.pwm2, v)
-        self._fwd(M3_IN1, M3_IN2, self.pwm3, v)
-        self._fwd(M4_IN1, M4_IN2, self.pwm4, v)
+        c = self.calib["turn_l"]
+        self._bwd(M1_IN1, M1_IN2, self.pwm1, v * c[0])
+        self._bwd(M2_IN1, M2_IN2, self.pwm2, v * c[1])
+        self._fwd(M3_IN1, M3_IN2, self.pwm3, v * c[2])
+        self._fwd(M4_IN1, M4_IN2, self.pwm4, v * c[3])
 
     def girar_lento_derecha(self):
         self.girar_derecha(vel=self.SLOW_TURN)

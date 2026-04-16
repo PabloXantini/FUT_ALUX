@@ -35,11 +35,12 @@ class AlignState(State):
         if ctx.offset_x is None:
             return
         if ctx.offset_x > 0:
-            # Pelota a la derecha en imagen → corregir girando a la izquierda
-            ctx.estado_label = "Giro <- IZQ (Ajustando)"
+            # Pelota a la derecha en imagen → corregir girando a la derecha
+            ctx.estado_label = "Giro -> DER (Ajustando)"
             ctx.motors.girar_lento_izquierda()
         else:
-            ctx.estado_label = "Giro -> DER (Ajustando)"
+            # Pelota a la izquierda en imagen → corregir girando a la izquierda
+            ctx.estado_label = "Giro <- IZQ (Ajustando)"
             ctx.motors.girar_lento_derecha()
  
  

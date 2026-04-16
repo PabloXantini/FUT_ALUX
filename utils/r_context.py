@@ -77,7 +77,7 @@ class RobotContext(MContext):
         contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL,
                                        cv2.CHAIN_APPROX_SIMPLE)
  
-        debug = frame.copy()
+        debug = frame.copy() if self.debug else None
         img_cx = frame.shape[1] // 2
         self.ball_detected = False
         self.offset_x      = None
@@ -95,16 +95,19 @@ class RobotContext(MContext):
                     self.offset_x = cx - img_cx
                     (x, y), rf   = cv2.minEnclosingCircle(c)
                     self.radius  = int(rf)
-                    cv2.drawContours(debug, [c], -1, (255, 0, 0), 2)
-                    cv2.circle(debug, (cx, cy), 5, (0, 255, 0), -1)
-                    cv2.circle(debug, (int(x), int(y)), self.radius,
-                               (0, 0, 255), 2)
+                    
+                    if self.debug:
+                        cv2.drawContours(debug, [c], -1, (255, 0, 0), 2)
+                        cv2.circle(debug, (cx, cy), 5, (0, 255, 0), -1)
+                        cv2.circle(debug, (int(x), int(y)), self.radius,
+                                   (0, 0, 255), 2)
  
-        # Franja central de referencia
-        lx = img_cx - FRANJA_CENTRAL
-        rx = img_cx + FRANJA_CENTRAL
-        cv2.line(debug, (lx, 0), (lx, frame.shape[0]), (255, 255, 255), 1)
-        cv2.line(debug, (rx, 0), (rx, frame.shape[0]), (255, 255, 255), 1)
+        if self.debug:
+            # Franja central de referencia
+            lx = img_cx - FRANJA_CENTRAL
+            rx = img_cx + FRANJA_CENTRAL
+            cv2.line(debug, (lx, 0), (lx, frame.shape[0]), (255, 255, 255), 1)
+            cv2.line(debug, (rx, 0), (rx, frame.shape[0]), (255, 255, 255), 1)
  
         self.frame_debug = debug
  

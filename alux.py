@@ -59,22 +59,47 @@ def main():
     parser.add_argument("--sandbox", action="store_true", help="Run FSM in Pygame 2D simulator")
     args = parser.parse_args()
 
-    machine, ctx = build_machine(debug=args.debug, sandbox=args.sandbox)
-
-    try:
-        while True:
-            if not ctx.compute():
-                break                      # cámara sin frames → salir
-            machine.run(ctx)               # FSM: evalúa transición + ejecuta
-            ctx.show_debug()               # muestra frame con overlay
-            if args.debug and not args.sandbox:
-                if cv2.waitKey(1) & 0xFF == ord("q"):
+    if args.sandbox:
+        from sandbox.game import GameController
+        from sandbox.entities import RobotEntity
+        
+        game = GameController(debug=args.debug)
+        machine, ctx = build_machine(debug=args.debug, sandbox=True)
+        
+        # El robot defiende la meta azul (Izquierda) y mira hacia la derecha
+        robot = RobotEntity(x=200, y=game.height / 2, team_color=(0, 0, 255))
+        robot.attach_agent(machine, ctx)
+        
+        try:
+            while game.running:
+                game.step([robot])
+                game.render([robot])
+                
+                # Renderizar cámara simulada en OpenCV si estamos en modo debug
+                if args.debug and robot.context:
+                    robot.context.show_debug()
+                    if cv2.waitKey(1) & 0xFF == ord("q"):
+                        game.running = False
+        except KeyboardInterrupt:
+            pass
+        finally:
+            game.cleanup()
+            cv2.destroyAllWindows()
+    else:
+        machine, ctx = build_machine(debug=args.debug, sandbox=False)
+        try:
+            while True:
+                if not ctx.compute():
                     break
-
-    except KeyboardInterrupt:
-        pass
-    finally:
-        ctx.cleanup()
+                machine.run(ctx)
+                ctx.show_debug()
+                if args.debug:
+                    if cv2.waitKey(1) & 0xFF == ord("q"):
+                        break
+        except KeyboardInterrupt:
+            pass
+        finally:
+            ctx.cleanup()
 
 
 if __name__ == "__main__":

@@ -4,7 +4,7 @@ os.environ['PYGAME_HIDE_SUPPORT_PROMPT'] = "hide"
 from sandbox.entities import Ball, Goal
 
 class GameController:
-    def __init__(self, width=800, height=600, debug=False):
+    def __init__(self, width=750, height=450, debug=False):
         self.debug = debug
         pygame.init()
         self.width = width
@@ -47,8 +47,28 @@ class GameController:
                 self.running = False
 
         self.ball.update(self)
+        
         for robot in robots:
-            robot.update(self)
+            robot.update(self, robots)
+            
+        import math
+        # Resolver colisiones físicas entre todos los robots
+        for i in range(len(robots)):
+            for j in range(i + 1, len(robots)):
+                r1, r2 = robots[i], robots[j]
+                dx = r2.x - r1.x
+                dy = r2.y - r1.y
+                dist = math.hypot(dx, dy)
+                sum_radios = r1.radius + r2.radius
+                if 0 < dist < sum_radios:
+                    overlap = (sum_radios - dist) / 2
+                    nx = dx / dist
+                    ny = dy / dist
+                    # Alejar a cada uno la mitad del cruce para que no se encimen
+                    r1.x -= nx * overlap
+                    r1.y -= ny * overlap
+                    r2.x += nx * overlap
+                    r2.y += ny * overlap
             
         self.check_goals()
 
@@ -71,7 +91,7 @@ class GameController:
         # Tablero de Puntuación UI
         font = pygame.font.SysFont(None, 48)
         score_txt = font.render(f"AZUL {self.score['blue']} - {self.score['yellow']} AMARILLO", True, (255, 255, 255))
-        self.screen.blit(score_txt, (self.width / 2 - score_txt.get_width() / 2, 20))
+        self.screen.blit(score_txt, (self.width / 2 - score_txt.get_width() / 2, 50))
 
         # Interfaz de depuración (Muestra estado de cada robot si lo hay)
         if robots:

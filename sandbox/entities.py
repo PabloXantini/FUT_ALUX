@@ -80,10 +80,10 @@ class RobotEntity(Entity):
         self.context = context
         self.context.link_robot(self)
 
-    def update(self, game):
+    def update(self, game, robots=None):
         # 1. Ejecutar Lógica de Agente FSM (Autonomía)
         if self.machine and self.context:
-            self.context.compute(game.ball)
+            self.context.compute(game.ball, robots or [])
             self.machine.run(self.context)
         
         # 2. Cinematica / Física (usar actuador proveniente de Contexto)

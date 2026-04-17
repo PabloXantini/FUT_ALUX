@@ -64,20 +64,27 @@ def main():
         from sandbox.entities import RobotEntity
         
         game = GameController(debug=args.debug)
-        machine, ctx = build_machine(debug=args.debug, sandbox=True)
         
-        # El robot defiende la meta azul (Izquierda) y mira hacia la derecha
-        robot = RobotEntity(x=200, y=game.height / 2, team_color=(0, 0, 255))
-        robot.attach_agent(machine, ctx)
+        # Robot 1 (Aliado - Azul) - Empieza en la izquierda mirando a la derecha
+        machine1, ctx1 = build_machine(debug=args.debug, sandbox=True)
+        robot1 = RobotEntity(x=200, y=100, team_color=(0, 0, 255))
+        robot1.attach_agent(machine1, ctx1)
+        
+        # Robot 2 (Enemigo - Amarillo) - Empieza en la derecha mirando a la izquierda
+        machine2, ctx2 = build_machine(debug=args.debug, sandbox=True)
+        robot2 = RobotEntity(x=200, y=200, team_color=(255, 255, 0))
+        import math
+        robot2.rangle = math.pi # Rotar 180 grados inicial
+        robot2.attach_agent(machine2, ctx2)
         
         try:
             while game.running:
-                game.step([robot])
-                game.render([robot])
+                game.step([robot1, robot2])
+                game.render([robot1, robot2])
                 
                 # Renderizar cámara simulada en OpenCV si estamos en modo debug
-                if args.debug and robot.context:
-                    robot.context.show_debug()
+                if args.debug and robot1.context:
+                    robot1.context.show_debug()
                     if cv2.waitKey(1) & 0xFF == ord("q"):
                         game.running = False
         except KeyboardInterrupt:

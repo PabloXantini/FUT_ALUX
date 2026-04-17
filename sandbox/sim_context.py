@@ -60,7 +60,15 @@ class SimContext(RobotContext):
         return True
 
     def show_debug(self):
-        super().show_debug()
+        window_name = "Robot Vision"
+        if self.robot:
+            if self.robot.team_color == (0, 0, 255):
+                window_name = "Robot Vision - Blue Team"
+            elif self.robot.team_color == (255, 255, 0):
+                window_name = "Robot Vision - Yellow Team"
+            else:
+                window_name = f"Robot Vision - {id(self.robot)}"
+        super().show_debug(window_name=window_name)
 
     def cleanup(self):
         super().cleanup()

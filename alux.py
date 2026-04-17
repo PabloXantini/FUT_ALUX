@@ -82,9 +82,9 @@ def main():
                 game.step([robot1, robot2])
                 game.render([robot1, robot2])
                 
-                # Renderizar cámara simulada en OpenCV si estamos en modo debug
-                if args.debug and robot1.context:
-                    robot1.context.show_debug()
+                # Renderizar todas las cámaras simuladas en OpenCV si estamos en modo debug
+                if args.debug:
+                    game.show_virtual_cameras([robot1, robot2])
                     if cv2.waitKey(1) & 0xFF == ord("q"):
                         game.running = False
         except KeyboardInterrupt:

@@ -106,5 +106,12 @@ class GameController:
         pygame.display.flip()
         self.clock.tick(60) # 60 FPS
         
+    def show_virtual_cameras(self, robots):
+        """Método helper para desplegar los streams visuales de todos los robots del motor en modo Debug"""
+        if self.debug:
+            for robot in robots:
+                if hasattr(robot, 'context') and robot.context:
+                    robot.context.show_debug()
+        
     def cleanup(self):
         pygame.quit()

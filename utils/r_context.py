@@ -113,12 +113,12 @@ class RobotContext(MContext):
  
     # ── Debug visual ──────────────────────────────────────────────────────────
  
-    def show_debug(self):
+    def show_debug(self, window_name="Robot Vision"):
         if self.debug and self.frame_debug is not None:
             cv2.putText(self.frame_debug, self.estado_label,
                         (10, self.frame_height - 20),
                         cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 255), 2)
-            cv2.imshow("Robot Vision", self.frame_debug)
+            cv2.imshow(window_name, self.frame_debug)
  
     # ── Limpieza ──────────────────────────────────────────────────────────────
  

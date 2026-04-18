@@ -49,7 +49,21 @@ class SimContext(RobotContext):
 
         # Evaluar la visión sobre la imagen resultante (con distorsión inyectada)
         hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
-        self._detect_objects(frame, hsv)
+        result, self.frame_debug = self.vision.detect(frame, hsv, self.debug)
+        
+        # Volcar estado modular de vuelta a contexto para FSM en entorno simulado
+        self.ball_detected = result['ball_detected']
+        self.offset_x = result['offset_x']
+        self.radius = result['radius']
+        
+        self.ally_goal_detected = result['ally_goal_detected']
+        self.ally_goal_offset_x = result['ally_goal_offset_x']
+        self.ally_goal_radius = result['ally_goal_radius']
+        
+        self.enemy_goal_detected = result['enemy_goal_detected']
+        self.enemy_goal_offset_x = result['enemy_goal_offset_x']
+        self.enemy_goal_radius = result['enemy_goal_radius']
+        
         return True
 
     def show_debug(self):

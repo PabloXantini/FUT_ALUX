@@ -47,51 +47,56 @@ class VirtualCamera:
         self.map_x = (self.width / 2.0 + x_c * scale).astype(np.float32)
         self.map_y = (self.height / 2.0 + y_c * scale).astype(np.float32)
         
-    def project_3d(self, x_world, y_world, z_world, observer):
-        """Transforma coordenadas de mundo a coordenadas de imagen (u, v) y profundidad Z."""
-        dx = x_world - observer.x
-        dy = y_world - observer.y
-        dz = z_world - self.camera_height
+    def project_3d_vectorized(self, points, observer):
+        """
+        Versión vectorizada de project_3d para procesar múltiples puntos (N, 3).
+        Retorna (N, 3) con (u, v, z_cam).
+        """
+        pts = np.atleast_2d(points)
+        dx = pts[:, 0] - observer.x
+        dy = pts[:, 1] - observer.y
+        dz = pts[:, 2] - self.camera_height
         
-        # 1. Rotación por el Yaw total del robot + offset de cámara
         total_yaw = observer.rangle + self.yaw_off
-        
-        # En el motor de juego, rangle=0 apunta hacia la derecha (+X).
-        # El vector frente (forward) es (cos, sin) y el vector derecha (right) es (-sin, cos).
         cos_y = math.cos(total_yaw)
         sin_y = math.sin(total_yaw)
         
-        # Proyectar el vector relativo (dx, dy) sobre los ejes locales del robot
-        # y_rel (adelante) = dx*cos + dy*sin
-        # x_rel (derecha) = -dx*sin + dy*cos
+        # Proyectar sobre ejes locales del robot
         y_rel = dx * cos_y + dy * sin_y
         x_rel = -dx * sin_y + dy * cos_y
         z_rel = dz
         
-        # Ahora y_rel es "adelante", x_rel es "derecha", z_rel es "arriba".
-        
-        # 2. Rotación por Pitch (inclinación x-axis local)
+        # Rotación por Pitch
         cos_p = math.cos(self.pitch)
         sin_p = math.sin(self.pitch)
         
-        # El pitch rota alrededor de x_rel. Afecta a y_rel y z_rel.
-        # Si pitch > 0 (mirar hacia abajo), el suelo (z_rel bajo) se mueve hacia el centro.
         y_p = y_rel * cos_p - z_rel * sin_p
         z_p = y_rel * sin_p + z_rel * cos_p
         
-        # 3. Mapeo a espacio de cámara OpenCV (Z adelante, X derecha, Y abajo)
+        # Espacio OpenCV
         x_cam = x_rel
         y_cam = -z_p
         z_cam = y_p
         
-        if z_cam <= 0.1: # Detrás de la cámara o muy cerca
-            return None
-            
-        # 4. Proyección a píxeles
-        u = (self.focal_length * x_cam / z_cam) + self.cx
-        v = (self.focal_length * y_cam / z_cam) + self.cy
+        # Proyección (manejar z_cam <= 0.1 evitando división por cero)
+        mask = z_cam > 0.1
+        u = np.zeros_like(z_cam)
+        v = np.zeros_like(z_cam)
         
-        return int(u), int(v), z_cam
+        u[mask] = (self.focal_length * x_cam[mask] / z_cam[mask]) + self.cx
+        v[mask] = (self.focal_length * y_cam[mask] / z_cam[mask]) + self.cy
+        
+        # Retornar (N, 3) con u, v, z_cam. Los inválidos tienen u=v=0, z=0.
+        res = np.stack([u, v, z_cam], axis=1)
+        res[~mask] = 0
+        return res
+
+    def project_3d(self, x_world, y_world, z_world, observer):
+        """Transforma coordenadas de mundo a coordenadas de imagen (u, v) y profundidad Z."""
+        res = self.project_3d_vectorized([[x_world, y_world, z_world]], observer)
+        if res[0, 2] == 0:
+            return None
+        return int(res[0, 0]), int(res[0, 1]), res[0, 2]
 
     def _project_entity(self, observer, entity, color_bgr, shape_type="circle", base_size=12.0):
         """Calcula las coordenadas y métricas visuales para una entidad usando proyección 3D."""
@@ -155,20 +160,37 @@ class VirtualCamera:
             frame[:horizon_v, :] = (30, 30, 30) # Cielo
             frame[horizon_v:, :] = (50, 100, 30) # Suelo
         
-        # 2. Dibujar rejilla de suelo proyectada para dar sensación de profundidad
+        # 2. Dibujar rejilla de suelo proyectada de forma vectorizada
         grid_color = (40, 80, 20)
-        # Líneas Longitudinales (paralelas a la dirección del robot aproximadamente)
-        for dx_grid in range(-1000, 1001, 100):
-            points = []
-            for dy_grid in range(0, 2001, 100):
-                # Punto relativo al robot en su orientación actual
-                gx = observer.x + dx_grid * math.cos(observer.rangle - math.pi/2) + dy_grid * math.cos(observer.rangle)
-                gy = observer.y + dx_grid * math.sin(observer.rangle - math.pi/2) + dy_grid * math.sin(observer.rangle)
-                res = self.project_3d(gx, gy, 0, observer)
-                if res and 0 <= res[0] <= self.width and 0 <= res[1] <= self.height:
-                    points.append((res[0], res[1]))
-            if len(points) > 1:
-                cv2.polylines(frame, [np.array(points)], False, grid_color, 1)
+        dx_range = np.arange(-1000, 1001, 100)
+        dy_range = np.arange(0, 2001, 100)
+        
+        # Generar puntos de rejilla longitudinales
+        for dx_val in dx_range:
+            # Crear línea longitudinal (fija dx, varía dy)
+            line_world = np.zeros((len(dy_range), 3))
+            line_world[:, 0] = observer.x + dx_val * math.cos(observer.rangle - math.pi/2) + dy_range * math.cos(observer.rangle)
+            line_world[:, 1] = observer.y + dx_val * math.sin(observer.rangle - math.pi/2) + dy_range * math.sin(observer.rangle)
+            
+            res = self.project_3d_vectorized(line_world, observer)
+            # Filtrar puntos válidos
+            mask = (res[:, 2] > 0) & (res[:, 0] >= 0) & (res[:, 0] < self.width) & (res[:, 1] >= 0) & (res[:, 1] < self.height)
+            valid_points = res[mask, :2].astype(np.int32)
+            if len(valid_points) > 1:
+                cv2.polylines(frame, [valid_points], False, grid_color, 1)
+
+        # Generar puntos de rejilla transversales
+        for dy_val in dy_range:
+            # Crear línea transversal (fija dy, varía dx)
+            line_world = np.zeros((len(dx_range), 3))
+            line_world[:, 0] = observer.x + dx_range * math.cos(observer.rangle - math.pi/2) + dy_val * math.cos(observer.rangle)
+            line_world[:, 1] = observer.y + dx_range * math.sin(observer.rangle - math.pi/2) + dy_val * math.sin(observer.rangle)
+            
+            res = self.project_3d_vectorized(line_world, observer)
+            mask = (res[:, 2] > 0) & (res[:, 0] >= 0) & (res[:, 0] < self.width) & (res[:, 1] >= 0) & (res[:, 1] < self.height)
+            valid_points = res[mask, :2].astype(np.int32)
+            if len(valid_points) > 1:
+                cv2.polylines(frame, [valid_points], False, grid_color, 1)
 
         # 3. Proyectar Objetos
         objects_to_draw = []
@@ -188,38 +210,30 @@ class VirtualCamera:
         for g in state.goals:
             color_bgr = (int(g.team_color[2]), int(g.team_color[1]), int(g.team_color[0]))
             
-            # Determinar el plano de la "boca" de la portería (heurística basada en posición)
-            # El centro de la portería 2D es (g.x + g.width/2, g.y + g.height/2)
-            # Pero la boca está en el borde que da al campo.
             mouth_x = g.x + g.width if g.x < 100 else g.x
             mouth_y_center = g.y + g.height / 2.0
+            w_mouth, h_mouth = g.height, g.z_height
             
-            # Dimensiones de la cara frontal
-            w_mouth = g.height
-            h_mouth = g.z_height
+            # Vértices en bloque: Base Izq, Base Der, Tope Der, Tope Izq
+            v_world = np.array([
+                [mouth_x, mouth_y_center - w_mouth/2, 0],
+                [mouth_x, mouth_y_center + w_mouth/2, 0],
+                [mouth_x, mouth_y_center + w_mouth/2, h_mouth],
+                [mouth_x, mouth_y_center - w_mouth/2, h_mouth]
+            ])
             
-            # Vértices: Base Izq, Base Der, Tope Der, Tope Izq
-            v1 = self.project_3d(mouth_x, mouth_y_center - w_mouth/2, 0, observer)
-            v2 = self.project_3d(mouth_x, mouth_y_center + w_mouth/2, 0, observer)
-            v3 = self.project_3d(mouth_x, mouth_y_center + w_mouth/2, h_mouth, observer)
-            v4 = self.project_3d(mouth_x, mouth_y_center - w_mouth/2, h_mouth, observer)
+            res_v = self.project_3d_vectorized(v_world, observer)
+            mask_visible = res_v[:, 2] > 0.1
             
-            # Solo dibujar si al menos un punto es visible (z > 0)
-            visible_pts = [v for v in [v1, v2, v3, v4] if v is not None]
-            if len(visible_pts) >= 2:
-                # Usar la distancia media para el Painter's Algorithm
-                z_avg = sum(v[2] for v in visible_pts) / len(visible_pts)
-                
-                # Para simplificar, si no son todos visibles, no dibujamos el polígono completo
-                # pero en un simulador real haríamos clipping. Por ahora, si todos visibles:
-                if len(visible_pts) == 4:
-                    pts = np.array([[v1[0], v1[1]], [v2[0], v2[1]], [v3[0], v3[1]], [v4[0], v4[1]]], np.int32)
-                    objects_to_draw.append({
-                        'dist': z_avg,
-                        'pts': pts,
-                        'color': color_bgr,
-                        'shape': 'poly'
-                    })
+            if np.all(mask_visible):
+                z_avg = np.mean(res_v[:, 2])
+                pts = res_v[:, :2].astype(np.int32)
+                objects_to_draw.append({
+                    'dist': z_avg,
+                    'pts': pts,
+                    'color': color_bgr,
+                    'shape': 'poly'
+                })
 
         # 4. Painter's Algorithm: Ordenar por distancia (Z)
         objects_to_draw.sort(key=lambda obj: obj['dist'], reverse=True)
@@ -230,7 +244,7 @@ class VirtualCamera:
                 # Dibujar la cara frontal de la portería
                 cv2.fillPoly(frame, [obj['pts']], obj['color'])
                 # Borde sutil
-                cv2.polylines(frame, [obj['pts']], True, (255, 255, 255), 2)
+                # cv2.polylines(frame, [obj['pts']], True, (255, 255, 255), 2)
                 continue
 
             u, v_base, v_top = obj['u'], obj['v_base'], obj['v_top']
@@ -249,7 +263,7 @@ class VirtualCamera:
                 cv2.rectangle(frame, top_left, bottom_right, (255, 255, 255), 1)
 
         # 6. Aplica la lente Fisheye
-        #frame = cv2.remap(frame, self.map_x, self.map_y, cv2.INTER_LINEAR, 
-        #                  borderMode=cv2.BORDER_CONSTANT, borderValue=(0,0,0))
+        frame = cv2.remap(frame, self.map_x, self.map_y, cv2.INTER_LINEAR, 
+                          borderMode=cv2.BORDER_CONSTANT, borderValue=(0,0,0))
                           
         return frame

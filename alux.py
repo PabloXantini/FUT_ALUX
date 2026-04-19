@@ -30,7 +30,7 @@ from utils.r_rules import (
     NotBallGoalAligned
 )
 
-def build_machine(debug: bool = False, sandbox: bool = True, team_color: str = "blue") -> tuple[Machine, object]:
+def build_machine(debug: bool = False, sandbox: bool = False, team_color: str = "blue") -> tuple[Machine, object]:
     if sandbox:
         from sandbox.sim_context import SimContext
         ctx = SimContext(debug=debug, team_color=team_color)

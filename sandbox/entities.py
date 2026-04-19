@@ -67,7 +67,7 @@ class Ball(Entity):
     def draw(self, screen):
         pygame.draw.circle(screen, Color(255, 100, 0), (int(self.x), int(self.y)), self.radius)
 
-class RobotEntity(Entity):
+class Robot(Entity):
     def __init__(self, x, y, team_color):
         super().__init__(x, y)
         self.radius = 23

@@ -1,10 +1,9 @@
 import cv2
-import numpy as np
-import math
 
 from utils.r_context import RobotContext
 from sandbox.sim_actuators import MockMotorController
 from sandbox.virtual_camera import VirtualCamera
+from sandbox.sim_cache import SimState
 
 class SimContext(RobotContext):
     """
@@ -46,7 +45,6 @@ class SimContext(RobotContext):
         other_robots = [r for r in state.robots if r is not self.robot]
         
         # Construir state filtrado conservando todos los elementos en la cache
-        from sandbox.sim_cache import SimState
         filtered_state = SimState(ball=state.ball, robots=other_robots, goals=state.goals)
         
         # Encargar la renderización a la VirtualCamera pasándole la cache de estado
@@ -54,20 +52,7 @@ class SimContext(RobotContext):
 
         # Evaluar la visión sobre la imagen resultante (con distorsión inyectada)
         hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
-        result, self.frame_debug = self.vision.detect(frame, hsv, self.debug)
-        
-        # Volcar estado modular de vuelta a contexto para FSM en entorno simulado
-        self.ball_detected = result['ball_detected']
-        self.offset_x = result['offset_x']
-        self.radius = result['radius']
-        
-        self.ally_goal_detected = result['ally_goal_detected']
-        self.ally_goal_offset_x = result['ally_goal_offset_x']
-        self.ally_goal_radius = result['ally_goal_radius']
-        
-        self.enemy_goal_detected = result['enemy_goal_detected']
-        self.enemy_goal_offset_x = result['enemy_goal_offset_x']
-        self.enemy_goal_radius = result['enemy_goal_radius']
+        self.info, self.frame_debug = self.vision.detect(frame, hsv, self.debug)
         
         return True
 

@@ -7,51 +7,57 @@ from utils.r_context import RobotContext, FRANJA_CENTRAL, RADIO_OBJETIVO
 class BallLost(Rule):
     """Pelota dejó de verse."""
     def applies(self, ctx: RobotContext) -> bool:
-        return not ctx.ball_detected
+        return not ctx.info['ball']['detected']
 
 class BallDetected(Rule):
     """Pelota visible por primera vez (o de vuelta)."""
     def applies(self, ctx: RobotContext) -> bool:
-        return ctx.ball_detected
+        return ctx.info['ball']['detected']
 
 class BallOffCenter(Rule):
     """Pelota visible pero no en medio."""
     def applies(self, ctx: RobotContext) -> bool:
-        return (ctx.ball_detected
-                and ctx.offset_x is not None
-                and abs(ctx.offset_x) > FRANJA_CENTRAL)
+        ball = ctx.info['ball']
+        return (ball['detected']
+                and ball['offset_x'] is not None
+                and abs(ball['offset_x']) > FRANJA_CENTRAL)
 
 class BallCentered(Rule):
     """Pelota en medio pero lejos."""
     def applies(self, ctx: RobotContext) -> bool:
-        return (ctx.ball_detected
-                and ctx.offset_x is not None
-                and abs(ctx.offset_x) <= FRANJA_CENTRAL
-                and ctx.radius < RADIO_OBJETIVO)
+        ball = ctx.info['ball']
+        return (ball['detected']
+                and ball['offset_x'] is not None
+                and abs(ball['offset_x']) <= FRANJA_CENTRAL
+                and ball['radius'] < RADIO_OBJETIVO)
 
 class BallClose(Rule):
     """Pelota centrada Y suficientemente cerca para detenerse/chutar."""
     def applies(self, ctx: RobotContext) -> bool:
-        return (ctx.ball_detected
-                and ctx.offset_x is not None
-                and abs(ctx.offset_x) <= FRANJA_CENTRAL
-                and ctx.radius >= RADIO_OBJETIVO)
+        ball = ctx.info['ball']
+        return (ball['detected']
+                and ball['offset_x'] is not None
+                and abs(ball['offset_x']) <= FRANJA_CENTRAL
+                and ball['radius'] >= RADIO_OBJETIVO)
 
-# Revisar
 class BallGoalAligned(Rule):
     """Pelota esta alineada a la porteria"""
     def applies(self, ctx: RobotContext) -> bool:
-        return (ctx.ball_detected
-                and ctx.enemy_goal_detected
-                and ctx.enemy_goal_offset_x is not None
-                and abs(ctx.offset_x) <= FRANJA_CENTRAL
-                and abs(ctx.enemy_goal_offset_x) <= FRANJA_CENTRAL)
+        ball = ctx.info['ball']
+        enemy_goal = ctx.info['enemy_goal']
+        return (ball['detected']
+                and enemy_goal['detected']
+                and enemy_goal['offset_x'] is not None
+                and abs(ball['offset_x']) <= FRANJA_CENTRAL
+                and abs(enemy_goal['offset_x']) <= FRANJA_CENTRAL)
     
 class NotBallGoalAligned(Rule):
     """Pelota esta alineada a la porteria"""
     def applies(self, ctx: RobotContext) -> bool:
-        return (ctx.ball_detected
-                and ctx.enemy_goal_detected
-                and ctx.enemy_goal_offset_x is not None
-                and abs(ctx.offset_x) > FRANJA_CENTRAL
-                and abs(ctx.enemy_goal_offset_x) > FRANJA_CENTRAL)
+        ball = ctx.info['ball']
+        enemy_goal = ctx.info['enemy_goal']
+        return (ball['detected']
+                and enemy_goal['detected']
+                and enemy_goal['offset_x'] is not None
+                and abs(ball['offset_x']) > FRANJA_CENTRAL
+                and abs(enemy_goal['offset_x']) > FRANJA_CENTRAL)

@@ -90,18 +90,18 @@ def main():
 
     if args.sandbox:
         from sandbox.game import GameController
-        from sandbox.entities import RobotEntity
+        from sandbox.entities import Robot
         
         game = GameController(debug=args.debug)
         
         # Robot 1 (Aliado - Azul) - Empieza en la izquierda mirando a la derecha
         machine1, ctx1 = build_machine(debug=args.debug, sandbox=True, team_color="blue")
-        robot1 = RobotEntity(x=200, y=100, team_color=(0, 0, 255))
+        robot1 = Robot(x=200, y=100, team_color=(0, 0, 255))
         robot1.attach_agent(machine1, ctx1)
         
         # Robot 2 (Enemigo - Amarillo) - Empieza en la derecha mirando a la izquierda
         machine2, ctx2 = build_machine(debug=args.debug, sandbox=True, team_color="yellow")
-        robot2 = RobotEntity(x=200, y=200, team_color=(255, 255, 0))
+        robot2 = Robot(x=200, y=200, team_color=(255, 255, 0))
         import math
         robot2.rangle = math.pi # Rotar 180 grados inicial
         robot2.attach_agent(machine2, ctx2)

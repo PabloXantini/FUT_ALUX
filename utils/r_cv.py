@@ -1,7 +1,7 @@
 import cv2
 import numpy as np
 
-class ColorSegmentation:
+class ColorSegmentator:
     """
     Componente modular responsable de segmentar un color específico utilizando HSV.
     """
@@ -11,50 +11,47 @@ class ColorSegmentation:
         self.min_area = min_area
         self.kernel = np.ones((kernel_size, kernel_size), np.uint8)
 
-    def segment(self, hsv, frame_width):
-        """Aplica la máscara y detecta el blob del color configurado de forma optimizada."""
-        # 1. inRange crea la matriz original
+    def segment(self, hsv):
+        """
+        Aplica la máscara HSV y detecta el blob del color configurado.
+        Retorna (centroid, contour, mask).
+        """
+        # 1. Crear máscara
         mask = cv2.inRange(hsv, self.lower, self.upper)
         
-        # 2. Operaciones morfológicas in-place usando dst=mask para evitar alocación de memoria (vital en RPi)
+        # 2. Operaciones morfológicas
         cv2.morphologyEx(mask, cv2.MORPH_CLOSE, self.kernel, iterations=2, dst=mask)
         cv2.morphologyEx(mask, cv2.MORPH_OPEN,  self.kernel, iterations=1, dst=mask)
         
         # 3. Extraer contornos
         contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
         
-        # Early return si no hay ruido ni objetos
         if not contours:
-            return False, None, 0, None
+            return None, None, mask
             
         best_contour = None
         max_area = 0.0
         
-        # 4. Evitar el overhead de la función key= en max() de Python para acelerar el ciclo C
         for c in contours:
             area = cv2.contourArea(c)
             if area > max_area:
                 max_area = area
                 best_contour = c
                 
-        # 5. Computar centro y offset solamente si pasa el threshold
+        # 4. Verificar umbral de área
         if max_area > self.min_area:
             M = cv2.moments(best_contour)
-            m00 = M["m00"]
-            if m00 != 0:
-                cx = int(M["m10"] / m00)
-                # Bitwise right shift es más rapido que integer division (// 2)
-                offset_x = cx - (frame_width >> 1)
-                
-                _, rf = cv2.minEnclosingCircle(best_contour)
-                return True, offset_x, int(rf), best_contour
+            if M["m00"] != 0:
+                cx = int(M["m10"] / M["m00"])
+                cy = int(M["m01"] / M["m00"])
+                return (cx, cy), best_contour, mask
                     
-        return False, None, 0, None
+        return None, None, mask
 
-class ColorDetector:
+class CVDetector:
     """
-    Orquestador de múltiples segmentadores de color. Gestiona al proceso central
-    combinando el frame crudo y la conversión HSV para alimentar a cada segmentador de la escena.
+    Orquestador de visión por computadora. Gestiona múltiples segmentadores
+    y realiza cálculos geométricos de proximidad y alineación.
     """
     def __init__(self, ball_segmenter, ally_goal_segmenter, enemy_goal_segmenter, franja_central=40):
         self.ball_seg = ball_segmenter
@@ -62,59 +59,79 @@ class ColorDetector:
         self.enemy_seg = enemy_goal_segmenter
         self.franja_central = franja_central
 
+    def detect_proximity(self, contour, centroid, frame_width):
+        """
+        Calcula el offset horizontal y el radio (tamaño aparente) de un objeto.
+        Retorna un diccionario con los valores calculados.
+        """
+        cx, _ = centroid
+        offset_x = cx - (frame_width >> 1)
+        _, radius = cv2.minEnclosingCircle(contour)
+        
+        return {
+            'detected': True,
+            'offset_x': offset_x,
+            'radius': int(radius)
+        }
+
     def detect(self, frame, hsv, debug=False):
         """
-        Calcula las variables principales inyectando el HSV y el Frame.
+        Ejecuta la detección completa de la escena y retorna un diccionario estructurado.
         """
         frame_width = frame.shape[1]
         frame_height = frame.shape[0]
         img_debug = frame.copy() if debug else None
         
-        # 1. ball detection
-        ball_detected, b_offset, b_radius, ball_contour = self.ball_seg.segment(hsv, frame_width)
-        # 2. ally goal detection
-        ally_detected, ally_offset, ally_radius, ally_contour = self.ally_seg.segment(hsv, frame_width)
-        # 3. enemy goal detection
-        enemy_detected, enemy_offset, enemy_radius, enemy_contour = self.enemy_seg.segment(hsv, frame_width)
+        # 1. Ball Detection
+        b_centroid, b_contour, _ = self.ball_seg.segment(hsv)
+        if b_centroid:
+            ball_data = self.detect_proximity(b_contour, b_centroid, frame_width)
+        else:
+            ball_data = {'detected': False, 'offset_x': None, 'radius': 0}
+            
+        # 2. Ally Goal Detection
+        ag_centroid, ag_contour, _ = self.ally_seg.segment(hsv)
+        if ag_centroid:
+            ally_data = self.detect_proximity(ag_contour, ag_centroid, frame_width)
+        else:
+            ally_data = {'detected': False, 'offset_x': None, 'radius': 0}
+            
+        # 3. Enemy Goal Detection
+        eg_centroid, eg_contour, _ = self.enemy_seg.segment(hsv)
+        if eg_centroid:
+            enemy_data = self.detect_proximity(eg_contour, eg_centroid, frame_width)
+        else:
+            enemy_data = {'detected': False, 'offset_x': None, 'radius': 0}
 
-        # 4. Debug mode
+        # 4. Debug Overlays
         if debug and img_debug is not None:
             img_cx = frame_width >> 1
+            
+            # Dibujar Ball
+            if b_centroid:
+                cv2.drawContours(img_debug, [b_contour], -1, (255, 100, 0), 2)
+                cv2.circle(img_debug, b_centroid, 5, (0, 255, 0), -1)
+                
+            # Dibujar Ally Goal
+            if ag_centroid:
+                cv2.drawContours(img_debug, [ag_contour], -1, (0, 255, 0), 2)
+                cv2.putText(img_debug, "ALLY", (ag_centroid[0] - 20, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
 
-            if ball_detected and ball_contour is not None:
-                cv2.drawContours(img_debug, [ball_contour], -1, (255, 0, 0), 2)
-                cx = img_cx + b_offset
-                cv2.circle(img_debug, (cx, frame_height >> 1), 5, (0, 255, 0), -1)
+            # Dibujar Enemy Goal
+            if eg_centroid:
+                cv2.drawContours(img_debug, [eg_contour], -1, (0, 0, 255), 2)
+                cv2.putText(img_debug, "ENEMY", (eg_centroid[0] - 25, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 2)
                 
-            if ally_detected and ally_contour is not None:
-                cv2.drawContours(img_debug, [ally_contour], -1, (0, 255, 0), 2)
-                cx = img_cx + ally_offset
-                cv2.putText(img_debug, "ALLY GOAL", (cx - 30, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
-                
-            if enemy_detected and enemy_contour is not None:
-                cv2.drawContours(img_debug, [enemy_contour], -1, (0, 0, 255), 2)
-                cx = img_cx + enemy_offset
-                cv2.putText(img_debug, "ENEMY GOAL", (cx - 40, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 2)
-                
+            # Franja central
             lx = img_cx - self.franja_central
             rx = img_cx + self.franja_central
             cv2.line(img_debug, (lx, 0), (lx, frame_height), (255, 255, 255), 1)
             cv2.line(img_debug, (rx, 0), (rx, frame_height), (255, 255, 255), 1)
 
         result = {
-            # ball
-            'ball_detected': ball_detected,
-            'offset_x': b_offset,
-            'radius': b_radius,
-            # ally goal
-            'ally_goal_detected': ally_detected,
-            'ally_goal_offset_x': ally_offset,
-            'ally_goal_radius': ally_radius,
-            # enemy goal
-            'enemy_goal_detected': enemy_detected,
-            'enemy_goal_offset_x': enemy_offset,
-            'enemy_goal_radius': enemy_radius
+            'ball': ball_data,
+            'ally_goal': ally_data,
+            'enemy_goal': enemy_data
         }
         
         return result, img_debug
-

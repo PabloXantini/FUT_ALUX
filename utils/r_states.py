@@ -30,7 +30,7 @@ class LookBall(State):
         ctx.motors.stop()
  
     def execute(self, ctx: RobotContext):
-        self.align = ctx.offset_x
+        self.align = ctx.info['ball']['offset_x']
         if self.align is None:
             return
         if self.align > 0:
@@ -54,9 +54,10 @@ class GotoBall(State):
         ctx.motors.stop()
  
     def execute(self, ctx: RobotContext):
-        ctx.estado_label = f"Enfocando: Avanzando (R:{ctx.radius})"
+        radius = ctx.info['ball']['radius']
+        ctx.estado_label = f"Enfocando: Avanzando (R:{radius})"
         ctx.motors.adelante_lento()
-
+ 
 class LookForShot(State):
     """
     Action: Think.
@@ -69,7 +70,7 @@ class LookForShot(State):
  
     def execute(self, ctx: RobotContext):
         ctx.estado_label = "¡CERCA! Detenido"
-
+ 
 class GotoGoal(State):
     """
     Domain the ball
@@ -80,7 +81,8 @@ class GotoGoal(State):
  
     def on_exit(self, ctx: RobotContext):
         ctx.motors.stop()
-
+ 
     def execute(self, ctx: RobotContext):
-        ctx.estado_label = f"CentradaMeta: Avanzando (R:{ctx.radius})"
+        radius = ctx.info['ball']['radius']
+        ctx.estado_label = f"CentradaMeta: Avanzando (R:{radius})"
         ctx.motors.adelante_lento()

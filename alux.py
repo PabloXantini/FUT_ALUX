@@ -30,13 +30,13 @@ from utils.r_rules import (
     NotBallGoalAligned
 )
 
-def build_machine(debug: bool = False, sandbox: bool = False, team_color: str = "blue") -> tuple[Machine, object]:
+def build_machine(debug: bool = False, sandbox: bool = False, name: str = "aluxe", team_color: str = "blue") -> tuple[Machine, object]:
     if sandbox:
         from sandbox.sim_context import SimContext
-        ctx = SimContext(debug=debug, team_color=team_color)
+        ctx = SimContext(debug=debug, name=name, team_color=team_color)
     else:
         from utils.r_context import RobotContext
-        ctx = RobotContext(debug=debug, team_color=team_color)
+        ctx = RobotContext(debug=debug, name=name, team_color=team_color)
 
     # ── Instanciar estados ────────────────────────────────────────────────────
     search = Search()
@@ -67,18 +67,6 @@ def build_machine(debug: bool = False, sandbox: bool = False, team_color: str = 
     # GOTOGOAL
     machine.add(g_goal, l_ball, BallOffCenter())
     machine.add(g_goal, search, BallLost())
-    """
-    machine.add(search,   align,    BallDetectedRule())   # ve la pelota
-    machine.add(align,    search,   BallLostRule())       # pierde la pelota
-    machine.add(align,    approach, BallCenteredRule())   # centrada y lejos
-    machine.add(align,    stop_st,  BallCloseRule())      # centrada y cerca
-    machine.add(approach, align,    BallOffCenterRule())  # se descentró
-    machine.add(approach, search,   BallLostRule())       # perdió la pelota
-    machine.add(approach, stop_st,  BallCloseRule())      # llegó cerca
-    machine.add(stop_st,  search,   BallLostRule())       # perdió la pelota
-    machine.add(stop_st,  align,    BallOffCenterRule())  # se movió
-    """
-
 
     return machine, ctx
 
@@ -89,31 +77,46 @@ def main():
     args = parser.parse_args()
 
     if args.sandbox:
+        import math
         from sandbox.game import GameController
         from sandbox.entities import Robot
         
         game = GameController(debug=args.debug)
         
+        team_colors = {
+            'blue': (0, 0, 255),
+            'yellow': (255, 255, 0)
+        }
+
+        # TEAM BLUE
         # Robot 1 (Aliado - Azul) - Empieza en la izquierda mirando a la derecha
-        machine1, ctx1 = build_machine(debug=args.debug, sandbox=True, team_color="blue")
-        robot1 = Robot(x=200, y=100, team_color=(0, 0, 255))
-        robot1.attach_agent(machine1, ctx1)
-        
+        brain1 = build_machine(debug=args.debug, sandbox=True, name='Cuau', team_color="blue")
+        robot1 = Robot(x=200, y=150, color=team_colors['blue'], brain=brain1)
+        # robot1.attach_agent(machine1, ctx1)
+        brain2 = build_machine(debug=args.debug, sandbox=True, name='Delgado', team_color="blue")
+        robot2 = Robot(x=200, y=450, color=team_colors['blue'], brain=brain2)
+        # robot2.attach_agent(machine2, ctx2)
+        # TEAM YELLOW
         # Robot 2 (Enemigo - Amarillo) - Empieza en la derecha mirando a la izquierda
-        machine2, ctx2 = build_machine(debug=args.debug, sandbox=True, team_color="yellow")
-        robot2 = Robot(x=200, y=200, team_color=(255, 255, 0))
-        import math
-        robot2.rangle = math.pi # Rotar 180 grados inicial
-        robot2.attach_agent(machine2, ctx2)
-        
+        brain3 = build_machine(debug=args.debug, sandbox=True, name='Messi', team_color="yellow")
+        robot3 = Robot(x=600, y=150, color=team_colors['yellow'], brain=brain3)
+        robot3.rangle = math.pi # Rotar 180 grados inicial
+        # robot3.attach_agent(machine3, ctx3)
+        brain4 = build_machine(debug=args.debug, sandbox=True, name='Cristiano', team_color="yellow")
+        robot4 = Robot(x=600, y=450, color=team_colors['yellow'], brain=brain4)
+        robot4.rangle = math.pi # Rotar 180 grados inicial
+        # robot4.attach_agent(machine4, ctx4)
+
+        robots = [robot1, robot2, robot3, robot4]
+
         try:
             while game.running:
-                game.step([robot1, robot2])
-                game.render([robot1, robot2])
+                game.step(robots)
+                game.render(robots)
                 
                 # Renderizar todas las cámaras simuladas en OpenCV si estamos en modo debug
                 if args.debug:
-                    game.show_virtual_cameras([robot1, robot2])
+                    game.show_virtual_cameras(robots)
                     if cv2.waitKey(1) & 0xFF == ord("q"):
                         game.running = False
         except KeyboardInterrupt:

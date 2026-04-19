@@ -38,9 +38,10 @@ class RobotContext(MContext):
     Almacena el estado de percepción en self.info y expone motores.
     """
  
-    def __init__(self, debug: bool = False, team_color: str = "blue"):
+    def __init__(self, debug: bool = False, name: str = 'robot', team_color: str = "blue"):
         super().__init__()
         self.debug = debug
+        self.name = name
         self.team_color = team_color.lower()
         self.motors = MotorController()
         self.cap    = cv2.VideoCapture(CAMERA_SOURCE, CAP_BACKEND)
@@ -97,12 +98,12 @@ class RobotContext(MContext):
  
     # ── Debug visual ──────────────────────────────────────────────────────────
  
-    def show_debug(self, window_name="Robot Vision"):
+    def show_debug(self, window_name="POV:"):
         if self.debug and self.frame_debug is not None:
             cv2.putText(self.frame_debug, self.estado_label,
                         (10, self.frame_height - 20),
                         cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 255), 2)
-            cv2.imshow(window_name, self.frame_debug)
+            cv2.imshow(f"{window_name} {self.name}", self.frame_debug)
  
     # ── Limpieza ──────────────────────────────────────────────────────────────
  

@@ -11,8 +11,8 @@ class SimContext(RobotContext):
     Actúa únicamente como puente (MVC) entre el Robot físico simulado en 'game.py' y 
     los estados mentales del FSM (fsm.py).
     """
-    def __init__(self, debug: bool = True, team_color: str = "blue"):
-        super().__init__(debug=debug, team_color=team_color)
+    def __init__(self, debug: bool = True, name: str = 'robot', team_color: str = "blue"):
+        super().__init__(debug=debug, name=name ,team_color=team_color)
         self.motors = MockMotorController()
         
         class DummyCap:
@@ -32,7 +32,8 @@ class SimContext(RobotContext):
             width=self.frame_width, 
             height=self.frame_height, 
             fov_degrees=100,
-            pitch=30.0
+            pitch=30.0,
+            camera_height=18.0
         )
 
     def link_robot(self, robot_entity):
@@ -59,12 +60,12 @@ class SimContext(RobotContext):
     def show_debug(self):
         window_name = "Robot Vision"
         if self.robot:
-            if self.robot.team_color == (0, 0, 255):
-                window_name = "Robot Vision - Blue Team"
-            elif self.robot.team_color == (255, 255, 0):
-                window_name = "Robot Vision - Yellow Team"
+            if self.robot.color == (0, 0, 255):
+                window_name = f"POV: Blue Team - {self.robot.name}({id(self.robot)})"
+            elif self.robot.color == (255, 255, 0):
+                window_name = f"POV: Yellow Team - {self.robot.name}({id(self.robot)})"
             else:
-                window_name = f"Robot Vision - {id(self.robot)}"
+                window_name = f"POV: {id(self.robot)}"
         super().show_debug(window_name=window_name)
 
     def cleanup(self):

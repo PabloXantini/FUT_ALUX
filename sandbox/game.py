@@ -21,8 +21,8 @@ class GameController:
         self.ball = Ball(width / 2, height / 2)
         
         # Meta Aliada = Azul (Izquierda), Meta Enemiga = Amarilla (Derecha)
-        self.ally_goal = Goal(0, height / 2 - 75, 40, 150, (30, 80, 200))
-        self.enemy_goal = Goal(width - 40, height / 2 - 75, 40, 150, (220, 220, 20))
+        self.ally_goal = Goal(0, height / 2 - 100, 40, 200, (30, 80, 200))
+        self.enemy_goal = Goal(width - 40, height / 2 - 100, 40, 200, (220, 220, 20))
 
     def check_goals(self):
         if self.ball.dragging: return
@@ -93,7 +93,7 @@ class GameController:
             y_offset = 10
             for r in robots:
                 if r.context:
-                    lbl = font_small.render(f"FSM [{r.team_color}]: {r.context.estado_label}", True, (255, 255, 255))
+                    lbl = font_small.render(f"FSM {r.name}[{r.team}]: {r.context.estado_label}", True, (255, 255, 255))
                     self.screen.blit(lbl, (10, y_offset))
                     y_offset += 25
 

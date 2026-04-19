@@ -201,9 +201,9 @@ class VirtualCamera:
             
         for r in state.robots:
             v_mult = 0.15
-            color_bgr = (int(r.team_color[2] * v_mult), 
-                         int(r.team_color[1] * v_mult), 
-                         int(r.team_color[0] * v_mult))
+            color_bgr = (int(r.color[2] * v_mult), 
+                         int(r.color[1] * v_mult), 
+                         int(r.color[0] * v_mult))
             proj = self._project_entity(observer, r, color_bgr, "rect", r.radius)
             if proj: objects_to_draw.append(proj)
             

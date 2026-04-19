@@ -61,7 +61,7 @@ class Pitch(Entity):
         
         # Línea Central y Círculo
         pygame.draw.line(screen, (255, 255, 255), (self.width // 2, 0), (self.width // 2, self.height), 2)
-        pygame.draw.circle(screen, (255, 255, 255), (self.width // 2, self.height // 2), 60, 2)
+        pygame.draw.circle(screen, (255, 255, 255), (self.width // 2, self.height // 2), 100, 2)
         
         # PENAL AREAS
         # Área Izquierda
@@ -112,20 +112,21 @@ class Ball(Entity):
         pygame.draw.circle(screen, Color(255, 100, 0), (int(self.x), int(self.y)), self.radius)
 
 class Robot(Entity):
-    def __init__(self, x, y, team_color):
+    def __init__(self, x, y, color, brain):
         super().__init__(x, y)
-        self.radius = 23
-        self.z_height = 40.0  # Altura tridimensional del robot
+        self.radius = 30
+        self.z_height = 60.0  # Altura tridimensional del robot
         self.rangle = 0.0
-        self.team_color = team_color  # Atributo del color de equipo al que pertenece
-        
-        self.machine = None
-        self.context = None
+        self.color = color  # Atributo del color de equipo al que pertenece
+        self.attach_agent(brain)
 
-    def attach_agent(self, machine, context):
+    def attach_agent(self, brain):
+        machine, context = brain
         """Inyecta el cerebro del FSM para que forme parte intrínseca de esta entidad"""
         self.machine = machine
         self.context = context
+        self.name = context.name
+        self.team = context.team_color
         self.context.link_robot(self)
 
     def update(self, game, robots=None):
@@ -208,7 +209,7 @@ class Robot(Entity):
             screen.blit(transparent_surf, (0, 0))
             
         # Cuerpo del robot color equipo
-        pygame.draw.circle(screen, self.team_color, (int(self.x), int(self.y)), self.radius, 4)
+        pygame.draw.circle(screen, self.color, (int(self.x), int(self.y)), self.radius, 4)
         
         # Dirección "Frente" (Línea central indicadora)
         end_x = self.x + math.cos(self.rangle) * (self.radius * 1.2)

@@ -31,12 +31,15 @@ class ColorSegmentator:
             
         best_contour = None
         max_area = 0.0
-        
+        """
         for c in contours:
             area = cv2.contourArea(c)
             if area > max_area:
                 max_area = area
                 best_contour = c
+        """
+        best_contour = max(contours, key=cv2.contourArea)
+        max_area = cv2.contourArea(best_contour)
                 
         # 4. Verificar umbral de área
         if max_area > self.min_area:
@@ -64,6 +67,11 @@ class CVDetector:
         Calcula el offset horizontal y el radio (tamaño aparente) de un objeto.
         Retorna un diccionario con los valores calculados.
         """
+        if centroid is None: return {
+            'detected': False,
+            'offset_x': None,
+            'radius': 0
+        }
         cx, _ = centroid
         offset_x = cx - (frame_width >> 1)
         _, radius = cv2.minEnclosingCircle(contour)
@@ -84,24 +92,15 @@ class CVDetector:
         
         # 1. Ball Detection
         b_centroid, b_contour, _ = self.ball_seg.segment(hsv)
-        if b_centroid:
-            ball_data = self.detect_proximity(b_contour, b_centroid, frame_width)
-        else:
-            ball_data = {'detected': False, 'offset_x': None, 'radius': 0}
+        ball_data = self.detect_proximity(b_contour, b_centroid, frame_width)
             
         # 2. Ally Goal Detection
         ag_centroid, ag_contour, _ = self.ally_seg.segment(hsv)
-        if ag_centroid:
-            ally_data = self.detect_proximity(ag_contour, ag_centroid, frame_width)
-        else:
-            ally_data = {'detected': False, 'offset_x': None, 'radius': 0}
+        ally_data = self.detect_proximity(ag_contour, ag_centroid, frame_width)
             
         # 3. Enemy Goal Detection
         eg_centroid, eg_contour, _ = self.enemy_seg.segment(hsv)
-        if eg_centroid:
-            enemy_data = self.detect_proximity(eg_contour, eg_centroid, frame_width)
-        else:
-            enemy_data = {'detected': False, 'offset_x': None, 'radius': 0}
+        enemy_data = self.detect_proximity(eg_contour, eg_centroid, frame_width)
 
         # 4. Debug Overlays
         if debug and img_debug is not None:

@@ -16,6 +16,7 @@ FLIP_FRAME     = True
 LOWER_BALL = np.array([0, 120, 0], dtype=np.uint8)
 UPPER_BALL = np.array([20, 255, 255], dtype=np.uint8)
 BALL_AREA_MIN   = 50
+BALL_AREA_MINT  = 1
  
 # GOALS
 LOWER_GOAL1 = np.array([90, 50, 50], dtype=np.uint8)
@@ -67,7 +68,7 @@ class RobotContext(MContext):
             enemy_l, enemy_u = LOWER_GOAL1, UPPER_GOAL1
  
         # Inicializar Segmentadores
-        ball_seg = ColorSegmentator(LOWER_BALL, UPPER_BALL, BALL_AREA_MIN)
+        ball_seg = ColorSegmentator(LOWER_BALL, UPPER_BALL, BALL_AREA_MINT)
         ally_seg = ColorSegmentator(ally_l, ally_u, GOAL_AREA_MIN)
         enemy_seg = ColorSegmentator(enemy_l, enemy_u, GOAL_AREA_MIN)
  

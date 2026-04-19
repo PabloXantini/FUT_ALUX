@@ -72,27 +72,6 @@ This repository comes with a pre-configured `.vscode/tasks.json` file. You can e
 
 ---
 
-## 📁 Project Architecture
-
-The codebase strictly adheres to Clean Architecture employing the Context Injection pattern (MVC).
-
-```text
-FUT_ALUX/
-├── alux.py                 # CLI Menu Orchestrator
-├── fsm.py                  # Core Logic of the Finite State Machine (MContext)
-├── utils/                  # [Hardware Components]
-│   ├── r_context.py        # Physical wrapper and OpenCV capture treatment
-│   ├── r_states.py         # Isolated Agent Behavior modules
-│   ├── r_rules.py          # Trigger conditions for transitions
-│   └── r_actuators.py      # Logical GPIO pins and controlled accelerations
-└── sandbox/                # [Autonomous Simulation Suite]
-    ├── game.py             # FPS loop, Pygame Renderer, and Robot collision handling
-    ├── entities.py         # OOP definitions (Physical objects & Autonomous Entities with injected logic)
-    ├── virtual_camera.py   # Numpy matrix generator engine with 2.5D Fisheye perspective
-    ├── sim_context.py      # MiddleWare bridge from simulator -> fsm.py
-    └── sim_actuators.py    # Catches the electrical frequencies simulating displacement 
-```
-
 ## 🛠 Scaling the Intelligence
 To add a new skill to the robot, simply follow the project's standard recipe:
 1. Design a State in `utils/r_states.py`.

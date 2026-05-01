@@ -74,6 +74,7 @@ def main():
     parser = argparse.ArgumentParser(description="Robot Agent Alpha 1")
     parser.add_argument("--debug", action="store_true", help="Enable debug mode (UI)")
     parser.add_argument("--sandbox", action="store_true", help="Run FSM in Pygame 2D simulator")
+    parser.add_argument("--split-cams", action="store_true", help="Muestra ventanas individuales para la visión en lugar del mosaico")
     args = parser.parse_args()
 
     if args.sandbox:
@@ -81,7 +82,7 @@ def main():
         from sandbox.game import GameController
         from sandbox.entities import Robot
         
-        game = GameController(debug=args.debug)
+        game = GameController(debug=args.debug, mosaic=not args.split_cams)
         
         team_colors = {
             'blue': (0, 0, 255),
@@ -93,7 +94,7 @@ def main():
         brain1 = build_machine(debug=args.debug, sandbox=True, name='Cuau', team_color="blue")
         robot1 = Robot(x=200, y=150, color=team_colors['blue'], brain=brain1)
 
-        brain2 = build_machine(debug=args.debug, sandbox=True, name='Delgado', team_color="blue")
+        brain2 = build_machine(debug=args.debug, sandbox=True, name='Sanchez', team_color="blue")
         robot2 = Robot(x=200, y=450, color=team_colors['blue'], brain=brain2)
 
         # TEAM YELLOW

@@ -43,6 +43,7 @@ class RobotContext(MContext):
         self.debug = debug
         self.name = name
         self.team_color = team_color.lower()
+        self.team_color_rgb = (255, 0, 0) if self.team_color == "blue" else (0, 255, 255)
         self.motors = MotorController()
         self.cap    = cv2.VideoCapture(CAMERA_SOURCE, CAP_BACKEND)
  
@@ -98,12 +99,22 @@ class RobotContext(MContext):
  
     # ── Debug visual ──────────────────────────────────────────────────────────
  
-    def show_debug(self, window_name="POV:"):
+    def get_debug_frame(self, window_name="POV:"):
         if self.debug and self.frame_debug is not None:
-            cv2.putText(self.frame_debug, self.estado_label,
+            frame = self.frame_debug.copy()
+            # Combina el nombre de la ventana y el estado para mostrar en el mosaico/ventana
+            cv2.putText(frame, f"{self.name} ({window_name})", (10, 20),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.5, self.team_color_rgb, 2)
+            cv2.putText(frame, f"E: {self.estado_label}",
                         (10, self.frame_height - 20),
-                        cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 255), 2)
-            cv2.imshow(f"{window_name} {self.name}", self.frame_debug)
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 2)
+            return frame
+        return None
+
+    def show_debug(self, window_name="POV:"):
+        frame = self.get_debug_frame(window_name)
+        if frame is not None:
+            cv2.imshow(f"{window_name} {self.name}", frame)
  
     # ── Limpieza ──────────────────────────────────────────────────────────────
  

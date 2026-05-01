@@ -46,7 +46,7 @@ class SimContext(RobotContext):
         other_robots = [r for r in state.robots if r is not self.robot]
         
         # Construir state filtrado conservando todos los elementos en la cache
-        filtered_state = SimState(ball=state.ball, robots=other_robots, goals=state.goals)
+        filtered_state = SimState(ball=state.ball, robots=other_robots, goals=state.goals, pitch=getattr(state, 'pitch', None))
         
         # Encargar la renderización a la VirtualCamera pasándole la cache de estado
         frame = self.camera.render(observer=self.robot, state=filtered_state)
@@ -57,16 +57,20 @@ class SimContext(RobotContext):
         
         return True
 
-    def show_debug(self):
-        window_name = "Robot Vision"
+    def _get_window_name(self):
+        window_name = "Robot"
         if self.robot:
             if self.robot.color == (0, 0, 255):
-                window_name = f"POV: Blue Team - {self.robot.name}({id(self.robot)})"
+                window_name = "Blue"
             elif self.robot.color == (255, 255, 0):
-                window_name = f"POV: Yellow Team - {self.robot.name}({id(self.robot)})"
-            else:
-                window_name = f"POV: {id(self.robot)}"
-        super().show_debug(window_name=window_name)
+                window_name = "Yellow"
+        return window_name
+
+    def get_debug_frame(self):
+        return super().get_debug_frame(window_name=self._get_window_name())
+
+    def show_debug(self):
+        super().show_debug(window_name=self._get_window_name())
 
     def cleanup(self):
         super().cleanup()

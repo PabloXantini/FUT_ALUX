@@ -4,8 +4,9 @@ os.environ['PYGAME_HIDE_SUPPORT_PROMPT'] = "hide"
 from sandbox.entities import Ball, Goal, Pitch
 
 class GameController:
-    def __init__(self, width=800, height=600, debug=False):
+    def __init__(self, width=800, height=600, debug=False, mosaic=True):
         self.debug = debug
+        self.mosaic = mosaic
         pygame.init()
         self.width = width
         self.height = height
@@ -104,11 +105,36 @@ class GameController:
         self.clock.tick(60) # Limitar a 60 FPS
         
     def show_virtual_cameras(self, robots):
-        """Método helper para desplegar los streams visuales de todos los robots del motor en modo Debug"""
+        """Método helper para desplegar los streams visuales de todos los robots en modo mosaico o individual"""
         if self.debug:
+            import cv2
+            import numpy as np
+            frames = []
             for robot in robots:
                 if hasattr(robot, 'context') and robot.context:
-                    robot.context.show_debug()
+                    if not self.mosaic:
+                        robot.context.show_debug()
+                    else:
+                        frame = robot.context.get_debug_frame()
+                        if frame is not None:
+                            frames.append(frame)
+            
+            if self.mosaic and frames:
+                # Calculate grid size (e.g. 2x2 for 4 robots, 3x2 for 6)
+                n = len(frames)
+                cols = int(np.ceil(np.sqrt(n)))
+                rows = int(np.ceil(n / cols))
+                
+                # Resize and pad frames to assemble a grid
+                h, w, c = frames[0].shape
+                grid = np.zeros((h * rows, w * cols, c), dtype=np.uint8)
+                
+                for idx, frame in enumerate(frames):
+                    r = idx // cols
+                    c_idx = idx % cols
+                    grid[r*h:(r+1)*h, c_idx*w:(c_idx+1)*w] = frame
+                    
+                cv2.imshow("Virtual Cameras", grid)
         
     def cleanup(self):
         pygame.quit()

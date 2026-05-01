@@ -42,6 +42,12 @@ class Pitch(Entity):
         self.ally_penalty_zone = pygame.Rect(self.padding, self.height//2 - self.penalty_h//2, self.penalty_w, self.penalty_h)
         self.enemy_penalty_zone = pygame.Rect(self.width - (self.padding + self.penalty_w), self.height//2 - self.penalty_h//2, self.penalty_w, self.penalty_h)
         self.safe_zone = pygame.Rect(self.padding, self.padding, self.width - self.padding * 2, self.height - self.padding * 2)
+        
+        # Atributos estéticos compartidos
+        self.main_color = (255, 255, 255)
+        self.main_thick = 4
+        self.safe_color = (200, 200, 200)
+        self.safe_thick = 2
 
     def check_bounds(self, ball, goals):
         """Verifica si la pelota ha salido de la zona segura."""
@@ -60,17 +66,17 @@ class Pitch(Entity):
         screen.fill((30, 100, 40))
         
         # Línea Central y Círculo
-        pygame.draw.line(screen, (255, 255, 255), (self.width // 2, 0), (self.width // 2, self.height), 2)
-        pygame.draw.circle(screen, (255, 255, 255), (self.width // 2, self.height // 2), 100, 2)
+        pygame.draw.line(screen, self.main_color, (self.width // 2, 0), (self.width // 2, self.height), self.main_thick)
+        pygame.draw.circle(screen, self.main_color, (self.width // 2, self.height // 2), 100, self.main_thick)
         
-        # PENAL AREAS
+        # PENALTY AREAS
         # Área Izquierda
-        pygame.draw.rect(screen, (255, 255, 255), self.ally_penalty_zone, 2)
+        pygame.draw.rect(screen, self.main_color, self.ally_penalty_zone, self.main_thick)
         # Área Derecha
-        pygame.draw.rect(screen, (255, 255, 255), self.enemy_penalty_zone, 2)
+        pygame.draw.rect(screen, self.main_color, self.enemy_penalty_zone, self.main_thick)
         
         # SAFE ZONE
-        pygame.draw.rect(screen, (200, 200, 200), self.safe_zone, 1)
+        pygame.draw.rect(screen, self.safe_color, self.safe_zone, self.safe_thick)
 
 class Ball(Entity):
     def __init__(self, x, y):
@@ -135,7 +141,8 @@ class Robot(Entity):
             sim_state = SimState(
                 ball=game.ball, 
                 robots=robots or [], 
-                goals=[game.ally_goal, game.enemy_goal]
+                goals=[game.ally_goal, game.enemy_goal],
+                pitch=game.pitch
             )
             self.context.compute(sim_state)
             self.machine.run(self.context)

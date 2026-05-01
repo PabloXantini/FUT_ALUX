@@ -7,3 +7,4 @@ class SimState:
     ball: Any = None
     robots: List[Any] = field(default_factory=list)
     goals: List[Any] = field(default_factory=list)
+    pitch: Any = None

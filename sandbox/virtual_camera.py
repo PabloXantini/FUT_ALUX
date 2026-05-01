@@ -14,6 +14,10 @@ class VirtualCamera:
         self.height = height
         self.fov = math.radians(fov_degrees)
         
+        # Frustum
+        self._near = 0.05
+        self._far = 1000.0
+        
         # Orientación de la cámara (en radianes)
         self.pitch = math.radians(pitch)
         self.yaw_off = math.radians(yaw)
@@ -78,8 +82,8 @@ class VirtualCamera:
         y_cam = -z_p
         z_cam = y_p
         
-        # Proyección (manejar z_cam <= 0.1 evitando división por cero)
-        mask = z_cam > 0.05
+        # Proyección (manejar z_cam usando frustum near y far)
+        mask = (z_cam > self._near) & (z_cam < self._far)
         u = np.zeros_like(z_cam)
         v = np.zeros_like(z_cam)
         
@@ -144,9 +148,9 @@ class VirtualCamera:
         frame = np.zeros((self.height, self.width, 3), dtype=np.uint8)
         
         # 1. Fondo: Cielo y Pasto dinámicos según el Pitch
-        # Calculamos donde quedaría el horizonte (Z infinito, en el suelo)
-        horizon_res = self.project_3d(observer.x + math.cos(observer.rangle)*10000, 
-                                     observer.y + math.sin(observer.rangle)*10000, 
+        horizon_dist = self._far * 0.95
+        horizon_res = self.project_3d(observer.x + math.cos(observer.rangle) * horizon_dist, 
+                                     observer.y + math.sin(observer.rangle) * horizon_dist, 
                                      0, observer)
         
         horizon_v = horizon_res[1] if horizon_res else -1
@@ -210,7 +214,7 @@ class VirtualCamera:
                 base_t = line_dict['t']
                 
                 res = self.project_3d_vectorized(line_pts, observer)
-                mask = (res[:, 2] > 0.1)
+                mask = (res[:, 2] > 0)
                 
                 for i in range(len(line_pts) - 1):
                     if mask[i] and mask[i+1]:
@@ -240,7 +244,7 @@ class VirtualCamera:
         for g in state.goals:
             color_bgr = (int(g.team_color[2]), int(g.team_color[1]), int(g.team_color[0]))
             
-            mouth_x = g.x + g.width if g.x < 100 else g.x
+            mouth_x = g.x + g.width if g.x < 80 else g.x
             mouth_y_center = g.y + g.height / 2.0
             w_mouth, h_mouth = g.height, g.z_height
             
@@ -253,17 +257,18 @@ class VirtualCamera:
             ])
             
             res_v = self.project_3d_vectorized(v_world, observer)
-            mask_visible = res_v[:, 2] > 0.1
+            mask_visible = res_v[:, 2] > 0
             
-            if np.all(mask_visible):
-                z_avg = np.mean(res_v[:, 2])
-                pts = res_v[:, :2].astype(np.int32)
-                objects_to_draw.append({
-                    'dist': z_avg,
-                    'pts': pts,
-                    'color': color_bgr,
-                    'shape': 'poly'
-                })
+            if np.any(mask_visible):
+                valid_pts = res_v[mask_visible, :2].astype(np.int32)
+                if len(valid_pts) >= 3:
+                    z_avg = np.mean(res_v[mask_visible, 2])
+                    objects_to_draw.append({
+                        'dist': z_avg,
+                        'pts': valid_pts,
+                        'color': color_bgr,
+                        'shape': 'poly'
+                    })
 
         # 4. Painter's Algorithm: Ordenar por distancia (Z)
         objects_to_draw.sort(key=lambda obj: obj['dist'], reverse=True)
@@ -273,8 +278,6 @@ class VirtualCamera:
             if obj['shape'] == "poly":
                 # Dibujar la cara frontal de la portería
                 cv2.fillPoly(frame, [obj['pts']], obj['color'])
-                # Borde sutil
-                # cv2.polylines(frame, [obj['pts']], True, (255, 255, 255), 2)
                 continue
 
             u, v_base, v_top = obj['u'], obj['v_base'], obj['v_top']

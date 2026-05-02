@@ -11,80 +11,8 @@ from __future__ import annotations
 
 import cv2
 import argparse
-from fsm import Machine
-from utils.r_context import RobotContext
-from utils.r_states import (
-    Search, 
-    LookBall, 
-    GotoBall, 
-    LookForShot,
-    GotoEnemyGoal,
-    RedirectBall,
-    AvoidAllyGoal
-)
-from utils.r_rules import (
-    BallDetected,
-    BallLost,
-    BallOffCenter,
-    BallCentered,
-    BallClose,
-    BallEnemyGoalAligned,
-    NotBallEnemyGoalAligned,
-    NotBallAllyGoalAligned,
-    NoGoals
-)
-
-def build_machine(debug: bool = False, sandbox: bool = False, name: str = "aluxe", team_color: str = "blue") -> tuple[Machine, object]:
-    if sandbox:
-        from sandbox.sim_context import SimContext
-        ctx = SimContext(debug=debug, name=name, team_color=team_color)
-    else:
-        from utils.r_context import RobotContext
-        ctx = RobotContext(debug=debug, name=name, team_color=team_color)
-
-    # ── Instanciar estados ────────────────────────────────────────────────────
-    search = Search()
-    l_ball = LookBall()
-    g_ball = GotoBall()
-    l_shot  = LookForShot()
-    g_goal = GotoEnemyGoal()
-    r_ball = RedirectBall()
-    a_goal = AvoidAllyGoal()
-
-    # ── Máquina (estado inicial: búsqueda) ────────────────────────────────────
-    machine = Machine(search)
-
-    # ── Transiciones ──────────────────────────────────────────────────────────
-    #  Desde       → Hacia        Cuando
-    # SEARCH
-    machine.add(search, l_ball, BallDetected())
-    # LOOKBALL
-    machine.add(l_ball, g_ball, BallCentered())
-    machine.add(l_ball, search, BallLost())
-    machine.add(l_ball, l_shot, BallClose())
-    # GOTOBALL
-    machine.add(g_ball, l_ball, BallOffCenter())
-    machine.add(g_ball, search, BallLost())
-    machine.add(g_ball, l_shot, BallClose())
-    # WAITFORSHOT
-    machine.add(l_shot, g_goal, BallEnemyGoalAligned())
-    machine.add(l_shot, l_ball, NotBallEnemyGoalAligned())
-    machine.add(l_shot, a_goal, NotBallAllyGoalAligned())
-    machine.add(l_shot, r_ball, NoGoals())
-    machine.add(l_shot, g_goal, BallClose())
-    machine.add(l_shot, l_ball, BallOffCenter())
-    machine.add(l_shot, search, BallLost())
-    # GOTOGOAL
-    machine.add(g_goal, l_ball, BallOffCenter())
-    machine.add(g_goal, search, BallLost())
-    # REDIRECTBALL
-    machine.add(r_ball, l_ball, BallOffCenter())
-    machine.add(r_ball, search, BallLost())
-    # AVOIDALLYGOAL
-    machine.add(a_goal, l_ball, BallOffCenter())
-    machine.add(a_goal, search, BallLost())
-
-    return machine, ctx
+from tests.builder import build_machine
+from tests.matchs import prepare_2v2, prepare_1v1
 
 def main():
     parser = argparse.ArgumentParser(description="Robot Agent Alpha 1")
@@ -100,30 +28,7 @@ def main():
         
         game = GameController(debug=args.debug, mosaic=not args.split_cams)
         
-        team_colors = {
-            'blue': (0, 0, 255),
-            'yellow': (255, 255, 0)
-        }
-
-        # TEAM BLUE
-        # Robot 1 (Aliado - Azul) - Empieza en la izquierda mirando a la derecha
-        brain1 = build_machine(debug=args.debug, sandbox=True, name='Cuau', team_color="blue")
-        robot1 = Robot(x=200, y=150, color=team_colors['blue'], brain=brain1)
-
-        brain2 = build_machine(debug=args.debug, sandbox=True, name='Sanchez', team_color="blue")
-        robot2 = Robot(x=200, y=450, color=team_colors['blue'], brain=brain2)
-
-        # TEAM YELLOW
-        # Robot 2 (Enemigo - Amarillo) - Empieza en la derecha mirando a la izquierda
-        brain3 = build_machine(debug=args.debug, sandbox=True, name='Messi', team_color="yellow")
-        robot3 = Robot(x=600, y=150, color=team_colors['yellow'], brain=brain3)
-        robot3.rangle = math.pi # Rotar 180 grados inicial
-
-        brain4 = build_machine(debug=args.debug, sandbox=True, name='Cristiano', team_color="yellow")
-        robot4 = Robot(x=600, y=450, color=team_colors['yellow'], brain=brain4)
-        robot4.rangle = math.pi # Rotar 180 grados inicial
-
-        robots = [robot1, robot2, robot3, robot4]
+        robots = prepare_2v2(debug=args.debug, sandbox=args.sandbox) 
 
         try:
             while game.running:

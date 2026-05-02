@@ -108,9 +108,9 @@ class CVDetector:
         eg_centroid, eg_contour, eg_mask = self.enemy_seg.segment(hsv)
         enemy_data = self.detect_proximity(eg_contour, eg_centroid, frame_width)
         
-        img_debug = cv2.cvtColor(b_mask, cv2.COLOR_GRAY2BGR)
-        img_debug = cv2.add(img_debug, cv2.cvtColor(ag_mask, cv2.COLOR_GRAY2BGR))
-        img_debug = cv2.add(img_debug, cv2.cvtColor(eg_mask, cv2.COLOR_GRAY2BGR))
+        # img_debug = cv2.cvtColor(b_mask, cv2.COLOR_GRAY2BGR)
+        # img_debug = cv2.add(img_debug, cv2.cvtColor(ag_mask, cv2.COLOR_GRAY2BGR))
+        # img_debug = cv2.add(img_debug, cv2.cvtColor(eg_mask, cv2.COLOR_GRAY2BGR))
         # 4. Debug Overlays
         if debug and img_debug is not None:
             img_cx = frame_width >> 1

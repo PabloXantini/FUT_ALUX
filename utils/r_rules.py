@@ -53,6 +53,16 @@ class BallEnemyGoalAligned(Rule):
                 and enemy_goal['offset_x'] is not None
                 and abs(ball['offset_x']) <= FRANJA_CENTRAL
                 and abs(enemy_goal['offset_x']) <= FRANJA_CENTRAL)
+
+class BallAllyGoalAligned(Rule):
+    def applies(self, ctx: RobotContext) -> bool:
+        ball = ctx.info['ball']
+        ally_goal = ctx.info['ally_goal']
+        return (ball['detected']
+                and ally_goal['detected']
+                and ally_goal['offset_x'] is not None
+                and abs(ball['offset_x']) <= FRANJA_CENTRAL
+                and abs(ally_goal['offset_x']) <= FRANJA_CENTRAL)
     
 class NotBallEnemyGoalAligned(Rule):
     """Pelota esta alineada a la porteria"""
@@ -79,6 +89,7 @@ class NoGoals(Rule):
     def applies(self, ctx: RobotContext) -> bool:
         return not ctx.info['ally_goal']['detected'] and not ctx.info['enemy_goal']['detected']
 
-class ToMuchTimeToGoal(Rule):
+# the goal is held how much time the robot has been in state gotoenemygoal
+class TooMuchTimeToGoal(Rule):
     def applies(self, ctx: RobotContext) -> bool:
         return ctx.info['time'] > 10

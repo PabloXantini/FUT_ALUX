@@ -110,10 +110,10 @@ class RedirectBall(State):
             return
         if o_ball > 0:
             ctx.estado_label = "Giro -> DER (Redirigiendo)"
-            ctx.motors.lateral_izquierda()
+            ctx.motors.lateral_izquierda(vel=ctx.motors.HIGH)
         else:
             ctx.estado_label = "Giro <- IZQ (Redirigiendo)"
-            ctx.motors.lateral_derecha()
+            ctx.motors.lateral_derecha(vel=ctx.motors.HIGH)
 
 class AvoidAllyGoal(State):
     def on_init(self, ctx: RobotContext):
@@ -130,8 +130,8 @@ class AvoidAllyGoal(State):
         self.align = o_goal - o_ball
         if self.align > 0:
             ctx.estado_label = "Giro -> DER (Evitando)"
-            ctx.motors.lateral_derecha()
+            ctx.motors.lateral_derecha(vel=ctx.motors.HIGH)
         else:
             ctx.estado_label = "Giro <- IZQ (Evitando)"
-            ctx.motors.lateral_izquierda()
+            ctx.motors.lateral_izquierda(vel=ctx.motors.HIGH)
     

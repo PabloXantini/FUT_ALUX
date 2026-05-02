@@ -63,13 +63,23 @@ class LookForShot(State):
     Action: Think.
     """
     def on_init(self, ctx: RobotContext):
-        ctx.estado_label = "¡CERCA! Alineando a porteria"
+        ctx.estado_label = "CERCA! Alineando a porteria"
  
     def on_exit(self, ctx: RobotContext):
         ctx.motors.stop()
  
     def execute(self, ctx: RobotContext):
-        ctx.estado_label = "¡CERCA! Detenido"
+        o_ball = ctx.info['ball']['offset_x']
+        o_goal = ctx.info['enemy_goal']['offset_x']
+        if o_ball is None or o_goal is None:
+            return
+        self.align = o_ball - o_goal
+        if self.align > 0:
+            ctx.estado_label = f"Enfocando Meta: Derecha (A={self.align})"
+            ctx.motors.lateral_derecha()
+        else:
+            ctx.estado_label = f"Enfocando Meta: Izquierda (A={self.align})"
+            ctx.motors.lateral_izquierda()
  
 class GotoGoal(State):
     """
@@ -85,4 +95,4 @@ class GotoGoal(State):
     def execute(self, ctx: RobotContext):
         radius = ctx.info['ball']['radius']
         ctx.estado_label = f"CentradaMeta: Avanzando (R:{radius})"
-        ctx.motors.adelante_lento()
+        ctx.motors.adelante()

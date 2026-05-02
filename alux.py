@@ -26,8 +26,8 @@ from utils.r_rules import (
     BallOffCenter,
     BallCentered,
     BallClose,
-    BallGoalAligned,
-    NotBallGoalAligned
+    BallEnemyGoalAligned,
+    NotBallEnemyGoalAligned
 )
 
 def build_machine(debug: bool = False, sandbox: bool = False, name: str = "aluxe", team_color: str = "blue") -> tuple[Machine, object]:
@@ -61,8 +61,9 @@ def build_machine(debug: bool = False, sandbox: bool = False, name: str = "aluxe
     machine.add(g_ball, search, BallLost())
     machine.add(g_ball, l_shot, BallClose())
     # WAITFORSHOT
-    machine.add(l_shot, g_goal, BallGoalAligned())
-    machine.add(l_shot, l_ball, NotBallGoalAligned())
+    machine.add(l_shot, g_goal, BallEnemyGoalAligned())
+    machine.add(l_shot, l_ball, NotBallEnemyGoalAligned())
+    machine.add(l_shot, g_goal, BallClose())
     machine.add(l_shot, l_ball, BallOffCenter())
     # GOTOGOAL
     machine.add(g_goal, l_ball, BallOffCenter())

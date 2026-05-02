@@ -29,8 +29,8 @@ GOAL_AREA_MIN = 80
  
 # ── Parámetros de comportamiento ──────────────────────────────────────────────
  
-FRANJA_CENTRAL = 40   # píxeles de tolerancia lateral
-RADIO_OBJETIVO = 30   # radio mínimo para considerar la pelota "cerca"
+FRANJA_CENTRAL = 30   # píxeles de tolerancia lateral
+RADIO_OBJETIVO = 18   # radio mínimo para considerar la pelota "cerca"
  
  
 class RobotContext(MContext):

@@ -1,8 +1,11 @@
 from __future__ import annotations
 
 from fsm import Rule
-from utils.r_context import RobotContext, FRANJA_CENTRAL, RADIO_OBJETIVO
-
+from utils.r_context import (
+    RobotContext, 
+    FRANJA_CENTRAL, 
+    RADIO_OBJETIVO
+)
 
 class BallLost(Rule):
     """Pelota dejó de verse."""
@@ -40,7 +43,7 @@ class BallClose(Rule):
                 and abs(ball['offset_x']) <= FRANJA_CENTRAL
                 and ball['radius'] >= RADIO_OBJETIVO)
 
-class BallGoalAligned(Rule):
+class BallEnemyGoalAligned(Rule):
     """Pelota esta alineada a la porteria"""
     def applies(self, ctx: RobotContext) -> bool:
         ball = ctx.info['ball']
@@ -51,7 +54,7 @@ class BallGoalAligned(Rule):
                 and abs(ball['offset_x']) <= FRANJA_CENTRAL
                 and abs(enemy_goal['offset_x']) <= FRANJA_CENTRAL)
     
-class NotBallGoalAligned(Rule):
+class NotBallEnemyGoalAligned(Rule):
     """Pelota esta alineada a la porteria"""
     def applies(self, ctx: RobotContext) -> bool:
         ball = ctx.info['ball']
@@ -59,5 +62,5 @@ class NotBallGoalAligned(Rule):
         return (ball['detected']
                 and enemy_goal['detected']
                 and enemy_goal['offset_x'] is not None
-                and abs(ball['offset_x']) > FRANJA_CENTRAL
-                and abs(enemy_goal['offset_x']) > FRANJA_CENTRAL)
+                and (abs(ball['offset_x']) > FRANJA_CENTRAL
+                or abs(enemy_goal['offset_x']) > FRANJA_CENTRAL))

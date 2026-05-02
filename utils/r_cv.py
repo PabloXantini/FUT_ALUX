@@ -118,7 +118,7 @@ class CVDetector:
             # Dibujar Ball
             if b_centroid:
                 cv2.drawContours(img_debug, [b_contour], -1, (255, 100, 0), 2)
-                cv2.circle(img_debug, b_centroid, 5, (0, 255, 0), -1)
+                cv2.circle(img_debug, b_centroid, 5, (255, 255, 0), -1)
                 
             # Dibujar Ally Goal
             if ag_centroid:

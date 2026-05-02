@@ -234,7 +234,7 @@ class VirtualCamera:
             if proj: objects_to_draw.append(proj)
             
         for r in state.robots:
-            v_mult = 0.15
+            v_mult = 0.10
             color_bgr = (int(r.color[2] * v_mult), 
                          int(r.color[1] * v_mult), 
                          int(r.color[0] * v_mult))
@@ -293,7 +293,7 @@ class VirtualCamera:
                 bottom_right = (u + w // 2, v_base)
                 cv2.rectangle(frame, top_left, bottom_right, obj['color'], -1)
                 # Añadir un borde sutil
-                cv2.rectangle(frame, top_left, bottom_right, (255, 255, 255), 1)
+                # cv2.rectangle(frame, top_left, bottom_right, (255, 255, 255), 1)
 
         # 6. Aplica la lente Fisheye
         frame = cv2.remap(frame, self.map_x, self.map_y, cv2.INTER_LINEAR, 

@@ -35,10 +35,11 @@ class MotorController:
     """Gestiona los cuatro motores del robot vía GPIO/PWM."""
 
     # Velocidades por defecto (duty-cycle %)
-    DEFAULT_VEL  = 80
-    TURN_VEL     = 50
-    SLOW_TURN    = 30
-    FORWARD_SLOW = 60
+    HIGH      = 80
+    MID_HIGH  = 60
+    MEDIUM    = 40
+    MID_LOW   = 30
+    LOW       = 20
 
     def __init__(self, calib=None):
         """
@@ -97,8 +98,8 @@ class MotorController:
         for pwm in (self.pwm1, self.pwm2, self.pwm3, self.pwm4):
             pwm.ChangeDutyCycle(0)
 
-    def adelante_lento(self):
-        v = self.FORWARD_SLOW
+    def adelante(self, vel=None):
+        v = vel or self.HIGH
         c = self.calib["fwd"]
         self._fwd(M1_IN1, M1_IN2, self.pwm1, v * c[0])
         self._fwd(M2_IN1, M2_IN2, self.pwm2, v * c[1])
@@ -106,7 +107,7 @@ class MotorController:
         self._fwd(M4_IN1, M4_IN2, self.pwm4, v * c[3])
 
     def atras(self, vel=None):
-        v = vel or self.FORWARD_SLOW
+        v = vel or self.HIGH
         c = self.calib["bwd"]
         self._bwd(M1_IN1, M1_IN2, self.pwm1, v * c[0])
         self._bwd(M2_IN1, M2_IN2, self.pwm2, v * c[1])
@@ -114,7 +115,7 @@ class MotorController:
         self._bwd(M4_IN1, M4_IN2, self.pwm4, v * c[3])
 
     def lateral_derecha(self, vel=None):
-        v = vel or self.FORWARD_SLOW
+        v = vel or self.MEDIUM
         c = self.calib["right"]
         self._bwd(M1_IN1, M1_IN2, self.pwm1, v * c[0])
         self._fwd(M2_IN1, M2_IN2, self.pwm2, v * c[1])
@@ -122,7 +123,7 @@ class MotorController:
         self._fwd(M4_IN1, M4_IN2, self.pwm4, v * c[3])
 
     def lateral_izquierda(self, vel=None):
-        v = vel or self.FORWARD_SLOW
+        v = vel or self.MEDIUM
         c = self.calib["left"]
         self._bwd(M1_IN1, M1_IN2, self.pwm1, v * c[0])
         self._fwd(M2_IN1, M2_IN2, self.pwm2, v * c[1])
@@ -130,7 +131,7 @@ class MotorController:
         self._fwd(M4_IN1, M4_IN2, self.pwm4, v * c[3])
 
     def girar_derecha(self, vel=None):
-        v = vel or self.TURN_VEL
+        v = vel or self.MEDIUM
         c = self.calib["turn_r"]
         self._fwd(M1_IN1, M1_IN2, self.pwm1, v * c[0])
         self._fwd(M2_IN1, M2_IN2, self.pwm2, v * c[1])
@@ -138,7 +139,7 @@ class MotorController:
         self._bwd(M4_IN1, M4_IN2, self.pwm4, v * c[3])
 
     def girar_izquierda(self, vel=None):
-        v = vel or self.TURN_VEL
+        v = vel or self.MEDIUM
         c = self.calib["turn_l"]
         self._bwd(M1_IN1, M1_IN2, self.pwm1, v * c[0])
         self._bwd(M2_IN1, M2_IN2, self.pwm2, v * c[1])
@@ -146,10 +147,10 @@ class MotorController:
         self._fwd(M4_IN1, M4_IN2, self.pwm4, v * c[3])
 
     def girar_lento_derecha(self):
-        self.girar_derecha(vel=self.SLOW_TURN)
+        self.girar_derecha(vel=self.MID_LOW)
 
     def girar_lento_izquierda(self):
-        self.girar_izquierda(vel=self.SLOW_TURN)
+        self.girar_izquierda(vel=self.MID_LOW)
 
     # ── Limpieza ──────────────────────────────────────────────────────────────
 

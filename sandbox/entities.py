@@ -86,6 +86,7 @@ class Ball(Entity):
         self.vx = 0.0
         self.vy = 0.0
         self.dragging = False
+        self.last_kicked_by = None
 
     def update(self, game):
         mx, my = pygame.mouse.get_pos()
@@ -118,12 +119,16 @@ class Ball(Entity):
         pygame.draw.circle(screen, Color(255, 100, 0), (int(self.x), int(self.y)), self.radius)
 
 class Robot(Entity):
-    def __init__(self, x, y, color, brain):
-        super().__init__(x, y)
+    def __init__(self, color, brain, kickoff_x=None, kickoff_y=None):
+        import random
+        self.kickoff_x = kickoff_x if kickoff_x is not None else random.uniform(100, 700)
+        self.kickoff_y = kickoff_y if kickoff_y is not None else random.uniform(100, 500)
+        super().__init__(self.kickoff_x, self.kickoff_y)
         self.radius = 30
         self.z_height = 60.0  # Altura tridimensional del robot
         self.rangle = 0.0
         self.color = color  # Atributo del color de equipo al que pertenece
+        self.ban_timer = 0.0
         self.attach_agent(brain)
 
     def attach_agent(self, brain):
@@ -136,6 +141,12 @@ class Robot(Entity):
         self.context.link_robot(self)
 
     def update(self, game, robots=None):
+        if self.ban_timer > 0:
+            self.ban_timer -= 1/60.0
+            if self.ban_timer < 0:
+                self.ban_timer = 0
+            return  # Inactive robot, does not move or collide
+
         # 1. Ejecutar Lógica de Agente FSM (Autonomía)
         if self.machine and self.context:
             sim_state = SimState(
@@ -179,6 +190,7 @@ class Robot(Entity):
             nx, ny = dr_x / dist_rb, dr_y / dist_rb
             
             if not ball.dragging:
+                ball.last_kicked_by = self
                 ball.x += nx * overlap
                 ball.y += ny * overlap
                 
@@ -195,6 +207,9 @@ class Robot(Entity):
         self._last_y = self.y
 
     def draw(self, screen, debug=False):
+        if self.ban_timer > 0:
+            return # Desaparece del tablero si está baneado
+            
         # Dibujar cono de visión si estamos en debug
         if debug:
             fov = math.radians(100) # Apertura visual abierta al igual que en la cámara sintética

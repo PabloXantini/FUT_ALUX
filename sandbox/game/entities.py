@@ -23,6 +23,18 @@ class Goal(Entity):
         self.team_color = team_color  # Color de equipo (ej. (0,0,255) Azul)
         self.rect = pygame.Rect(x, y, width, height)
 
+    def get_walls(self, thickness=4):
+        walls = []
+        if self.rect.x < 80: # Left Goal
+            walls.append(pygame.Rect(self.rect.left - thickness, self.rect.top - thickness, thickness, self.rect.height + thickness*2)) # Back
+            walls.append(pygame.Rect(self.rect.left, self.rect.top - thickness, self.rect.width, thickness)) # Top
+            walls.append(pygame.Rect(self.rect.left, self.rect.bottom, self.rect.width, thickness)) # Bottom
+        else: # Right Goal
+            walls.append(pygame.Rect(self.rect.right, self.rect.top - thickness, thickness, self.rect.height + thickness*2)) # Back
+            walls.append(pygame.Rect(self.rect.left, self.rect.top - thickness, self.rect.width, thickness)) # Top
+            walls.append(pygame.Rect(self.rect.left, self.rect.bottom, self.rect.width, thickness)) # Bottom
+        return walls
+
     def draw(self, screen):
         # Dibujar la portería de forma semitransparente o caja con borde
         pygame.draw.rect(screen, self.team_color, self.rect, 0) # Relleno
@@ -53,10 +65,16 @@ class Pitch(Entity):
         """Verifica si la pelota ha salido de la zona segura."""
         if ball.dragging: return False
         
-        # Si cruza la línea frontal de las porterías
         if not self.safe_zone.collidepoint(ball.x, ball.y):
-            # Si no es un gol (no colisiona con el área de la portería), es fuera
-            is_goal = any(g.rect.collidepoint(ball.x, ball.y) for g in goals)
+            # Si no es un gol (no colisiona con el área de la portería extendida), es fuera
+            # Extendemos el área de la portería para que no castigue si pega en los postes
+            is_goal = False
+            for g in goals:
+                extended_goal = g.rect.inflate(20, 20)
+                if extended_goal.collidepoint(ball.x, ball.y):
+                    is_goal = True
+                    break
+                    
             if not is_goal:
                 return True # Debe resetearse
         return False
@@ -89,31 +107,8 @@ class Ball(Entity):
         self.last_kicked_by = None
 
     def update(self, game):
-        mx, my = pygame.mouse.get_pos()
-        mb1, _, _ = pygame.mouse.get_pressed()
-
-        if mb1:
-            dist_to_mouse = math.hypot(mx - self.x, my - self.y)
-            if dist_to_mouse < 30 or self.dragging:
-                self.dragging = True
-                self.vx = mx - self.x
-                self.vy = my - self.y
-                self.x = mx
-                self.y = my
-        else:
-            self.dragging = False
-
-        if not self.dragging:
-            self.x += self.vx
-            self.y += self.vy
-            self.vx *= 0.90
-            self.vy *= 0.90
-            
-            # Rebotes en paredes
-            if self.x < self.radius: self.x = self.radius; self.vx *= -0.8
-            if self.x > game.width - self.radius: self.x = game.width - self.radius; self.vx *= -0.8
-            if self.y < self.radius: self.y = self.radius; self.vy *= -0.8
-            if self.y > game.height - self.radius: self.y = game.height - self.radius; self.vy *= -0.8
+        # La lógica de arrastre y cinemática básica ahora se maneja en physics.py
+        pass
 
     def draw(self, screen):
         pygame.draw.circle(screen, Color(255, 100, 0), (int(self.x), int(self.y)), self.radius)
@@ -121,6 +116,7 @@ class Ball(Entity):
 class Robot(Entity):
     def __init__(self, color, brain, kickoff_x=None, kickoff_y=None):
         import random
+        self.is_random_kickoff = (kickoff_x is None) or (kickoff_y is None)
         self.kickoff_x = kickoff_x if kickoff_x is not None else random.uniform(100, 700)
         self.kickoff_y = kickoff_y if kickoff_y is not None else random.uniform(100, 500)
         super().__init__(self.kickoff_x, self.kickoff_y)
@@ -145,9 +141,9 @@ class Robot(Entity):
             self.ban_timer -= 1/60.0
             if self.ban_timer < 0:
                 self.ban_timer = 0
-            return  # Inactive robot, does not move or collide
+            return  # Inactive robot
 
-        # 1. Ejecutar Lógica de Agente FSM (Autonomía)
+        # Ejecutar Lógica de Agente FSM (Autonomía)
         if self.machine and self.context:
             sim_state = SimState(
                 ball=game.ball, 
@@ -157,54 +153,8 @@ class Robot(Entity):
             )
             self.context.compute(sim_state)
             self.machine.run(self.context)
-        
-        # 2. Cinematica / Física (usar actuador proveniente de Contexto)
-        if self.context:
-            v_turn = self.context.motors.v_turn
-            v_fwd = self.context.motors.v_forward
-            v_lat = self.context.motors.v_lateral
-        else:
-            v_turn = v_fwd = v_lat = 0.0
-
-        f_x = math.cos(self.rangle)
-        f_y = math.sin(self.rangle)
-        r_x = -f_y
-        r_y = f_x
-        
-        self.rangle += v_turn
-        self.x += (f_x * v_fwd) + (r_x * v_lat)
-        self.y += (f_y * v_fwd) + (r_y * v_lat)
-        
-        self.x = max(self.radius, min(game.width - self.radius, self.x))
-        self.y = max(self.radius, min(game.height - self.radius, self.y))
-
-        # 3. Colisiones físicas con la pelota
-        ball = game.ball
-        dr_x = ball.x - self.x
-        dr_y = ball.y - self.y
-        dist_rb = math.hypot(dr_x, dr_y)
-        sum_radios = self.radius + ball.radius
-        
-        if dist_rb < sum_radios and dist_rb > 0:
-            overlap = sum_radios - dist_rb
-            nx, ny = dr_x / dist_rb, dr_y / dist_rb
             
-            if not ball.dragging:
-                ball.last_kicked_by = self
-                ball.x += nx * overlap
-                ball.y += ny * overlap
-                
-                # Transferencia de momento
-                robot_vx = self.x - getattr(self, '_last_x', self.x)
-                robot_vy = self.y - getattr(self, '_last_y', self.y)
-                ball.vx += robot_vx * 0.5 + nx * 2.0
-                ball.vy += robot_vy * 0.5 + ny * 2.0
-            else:
-                self.x -= nx * overlap
-                self.y -= ny * overlap
-                
-        self._last_x = self.x
-        self._last_y = self.y
+        # La física se delega a physics.py
 
     def draw(self, screen, debug=False):
         if self.ban_timer > 0:

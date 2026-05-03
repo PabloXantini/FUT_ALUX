@@ -1,0 +1,202 @@
+import math
+import random
+import pygame
+
+class MatchRules:
+    def __init__(self, width, height, pitch, ally_goal, enemy_goal):
+        self.width = width
+        self.height = height
+        self.pitch = pitch
+        self.ally_goal = ally_goal
+        self.enemy_goal = enemy_goal
+
+        self.score = {"blue": 0, "yellow": 0}
+        self.match_minutes = 20
+        self.match_seconds = 0
+        self.total_match_time = self.match_minutes * 60 + self.match_seconds
+        self.half_time = self.total_match_time / 2.0
+        self.time_elapsed = 0.0
+        self.current_half = 1
+
+        self.ball_untouched_timer = 0.0
+        self.BALL_UNTOUCHED_LIMIT = 10.0
+
+        self.missing_team_timer = {"blue": 0.0, "yellow": 0.0}
+        self.kickoff_team = random.choice(["blue", "yellow"])
+        self.is_kickoff = True
+        self.match_over = False
+
+        self.RULE_PENALTY_BAN = False
+        self.RULE_PENALTY_NEUTRAL = True
+        self.RULE_PITCH_BOUNDS_BAN = True
+        self.RULE_SAFE_LINES_BAN = True
+
+    def reset_match(self, robots, ball):
+        self.score = {"blue": 0, "yellow": 0}
+        self.time_elapsed = 0.0
+        self.current_half = 1
+        self.match_over = False
+        self.kickoff_team = random.choice(["blue", "yellow"])
+        for r in robots:
+            r.ban_timer = 0.0
+        self.setup_kickoff(robots, ball)
+
+    def reset_ball(self, ball):
+        ball.x = self.width / 2
+        ball.y = self.height / 2
+        ball.vx = 0
+        ball.vy = 0
+        ball.last_kicked_by = None
+        self.ball_untouched_timer = 0.0
+
+    def setup_kickoff(self, robots, ball):
+        self.reset_ball(ball)
+        self.is_kickoff = True
+        
+        assigned_kickoff = False
+        for r in robots:
+            if getattr(r, 'is_random_kickoff', False):
+                r.kickoff_x = random.uniform(100, self.width - 100)
+                r.kickoff_y = random.uniform(100, self.height - 100)
+                
+            base_x = r.kickoff_x
+            base_y = r.kickoff_y
+            base_angle = 0.0 if r.team == "blue" else math.pi
+            
+            if r.team == "blue":
+                base_x = min(base_x, self.width / 2 - r.radius)
+            else:
+                base_x = max(base_x, self.width / 2 + r.radius)
+            
+            if r.team == self.kickoff_team:
+                if not assigned_kickoff:
+                    r.x = ball.x - 60 if r.team == "blue" else ball.x + 60
+                    r.y = ball.y
+                    r.rangle = base_angle
+                    assigned_kickoff = True
+                else:
+                    r.x = base_x + random.uniform(-10, 10)
+                    r.y = base_y + random.uniform(-10, 10)
+                    r.rangle = base_angle
+            else:
+                r.x = base_x
+                r.y = base_y
+                r.rangle = base_angle
+                dist = math.hypot(r.x - ball.x, r.y - ball.y)
+                min_dist = 100 + r.radius + ball.radius
+                if dist < min_dist:
+                    if dist == 0:
+                        dir_x, dir_y = (1, 0) if r.team == "blue" else (-1, 0)
+                    else:
+                        dir_x = (r.x - ball.x) / dist
+                        dir_y = (r.y - ball.y) / dist
+                    r.x = ball.x + dir_x * (min_dist + 5)
+                    r.y = ball.y + dir_y * (min_dist + 5)
+
+    def check_goals(self, ball, robots):
+        if ball.dragging: return
+        tolerance = 5.0
+        if ((ball.x <= ball.radius + tolerance) and (self.ally_goal.rect.top <= ball.y <= self.ally_goal.rect.bottom)):
+            self.score["yellow"] += 1
+            self.kickoff_team = "blue"
+            self.setup_kickoff(robots, ball)
+        elif ((ball.x >= self.width - ball.radius - tolerance) and (self.enemy_goal.rect.top <= ball.y <= self.enemy_goal.rect.bottom)):
+            self.score["blue"] += 1
+            self.kickoff_team = "yellow"
+            self.setup_kickoff(robots, ball)
+
+    def apply_penalties(self, ball, robots):
+        active_counts = {"blue": 0, "yellow": 0}
+        total_counts = {"blue": 0, "yellow": 0}
+        
+        for r in robots:
+            total_counts[r.team] += 1
+            if r.ban_timer > 0: 
+                continue
+            active_counts[r.team] += 1
+            
+            # Bounds penalty
+            if self.RULE_PITCH_BOUNDS_BAN:
+                if (r.x <= r.radius + 2 or r.x >= self.width - r.radius - 2 or
+                    r.y <= r.radius + 2 or r.y >= self.height - r.radius - 2):
+                    in_goal_y = (self.ally_goal.rect.top - 20 <= r.y <= self.ally_goal.rect.bottom + 20)
+                    if in_goal_y and (r.x <= r.radius + 2 or r.x >= self.width - r.radius - 2):
+                        pass
+                    else:
+                        r.ban_timer = 60.0
+                        continue
+            
+            # Penalty zones
+            r_rect = pygame.Rect(r.x - r.radius, r.y - r.radius, r.radius*2, r.radius*2)
+            for zone in [self.pitch.ally_penalty_zone, self.pitch.enemy_penalty_zone]:
+                if zone.contains(r_rect):
+                    if self.RULE_PENALTY_BAN:
+                        r.ban_timer = 60.0
+                elif zone.colliderect(r_rect):
+                    if self.RULE_PENALTY_NEUTRAL:
+                        for other in robots:
+                            if other != r and other.team == r.team and other.ban_timer <= 0:
+                                o_rect = pygame.Rect(other.x - other.radius, other.y - other.radius, other.radius*2, other.radius*2)
+                                if zone.colliderect(o_rect):
+                                    dist_r = math.hypot(r.x - ball.x, r.y - ball.y)
+                                    dist_o = math.hypot(other.x - ball.x, other.y - ball.y)
+                                    target = r if dist_r >= dist_o else other
+                                    pts = [(200, 150), (200, 450)] if target.team == "blue" else [(600, 150), (600, 450)]
+                                    target.x, target.y = min(pts, key=lambda p: abs(p[1] - target.y))
+                                    break
+
+        return total_counts, active_counts
+
+    def step(self, dt, ball, robots):
+        if self.match_over: return
+
+        self.time_elapsed += dt
+        
+        # Check halves
+        if self.current_half == 1 and self.time_elapsed >= self.half_time:
+            self.current_half = 2
+            self.kickoff_team = "yellow" if self.kickoff_team == "blue" else "blue"
+            for r in robots: r.ban_timer = 0.0
+            self.setup_kickoff(robots, ball)
+        elif self.current_half == 2 and self.time_elapsed >= self.total_match_time:
+            self.match_over = True
+            
+        total_counts, active_counts = self.apply_penalties(ball, robots)
+        self.check_goals(ball, robots)
+
+        # Bounds (Safe zone) check for ball
+        if self.pitch.check_bounds(ball, [self.ally_goal, self.enemy_goal]):
+            if self.RULE_SAFE_LINES_BAN and ball.last_kicked_by:
+                ball.last_kicked_by.ban_timer = 60.0
+            self.reset_ball(ball)
+
+        # Ball untouched
+        if abs(ball.vx) < 0.1 and abs(ball.vy) < 0.1 and not ball.dragging:
+            self.ball_untouched_timer += dt
+        else:
+            self.ball_untouched_timer = 0.0
+
+        if self.ball_untouched_timer >= self.BALL_UNTOUCHED_LIMIT:
+            self.ball_untouched_timer = 0.0
+            neutral_positions = {
+                "blue": [(200, 150), (200, 450)],
+                "yellow": [(600, 150), (600, 450)]
+            }
+            assigned = {"blue": 0, "yellow": 0}
+            for r in robots:
+                if r.ban_timer <= 0 and assigned[r.team] < 2:
+                    pos = neutral_positions[r.team][assigned[r.team]]
+                    r.x, r.y = pos
+                    assigned[r.team] += 1
+            self.reset_ball(ball)
+
+        # Missing team penalty
+        for team in ["blue", "yellow"]:
+            if total_counts[team] > 0 and active_counts[team] < total_counts[team]:
+                self.missing_team_timer[team] += dt
+                if self.missing_team_timer[team] >= 30.0:
+                    self.missing_team_timer[team] = 0.0
+                    other_team = "yellow" if team == "blue" else "blue"
+                    self.score[other_team] += 1
+            else:
+                self.missing_team_timer[team] = 0.0

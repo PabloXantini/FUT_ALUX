@@ -5,7 +5,7 @@ def prepare_2v2(debug: bool = False, sandbox: bool = False) -> list:
     if not sandbox:
         return robots
     import math
-    from sandbox.entities import Robot
+    from sandbox.game.entities import Robot
 
     team_colors = {
         'blue': (0, 0, 255),
@@ -38,7 +38,7 @@ def prepare_1v1(debug: bool = False, sandbox: bool = False) -> list:
     if not sandbox:
         return robots
     import math
-    from sandbox.entities import Robot
+    from sandbox.game.entities import Robot
 
     team_colors = {
         'blue': (0, 0, 255),
@@ -63,7 +63,7 @@ def prepare_solo(debug: bool = False, sandbox: bool = False) -> list:
     robots = []
     if not sandbox:
         return robots
-    from sandbox.entities import Robot
+    from sandbox.game.entities import Robot
 
     team_colors = {
         'blue': (0, 0, 255),

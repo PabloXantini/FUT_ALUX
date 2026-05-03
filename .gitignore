@@ -1,4 +1,4 @@
-/__pycache__
-/sandbox/__pycache__
-/utils/__pycache__
-/tests/__pycache__
+sandbox/cpp_vision/build/
+sandbox/cpp_vision/*.pyd
+sandbox/cpp_vision/*.txt
+__pycache__/

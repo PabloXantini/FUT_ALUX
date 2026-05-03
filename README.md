@@ -22,9 +22,18 @@ The repository is built on **Python 3.10+**.
 Install the main graphics and matrix computation libraries by running:
 
 ```bash
-pip install numpy opencv-python pygame
+pip install numpy opencv-python pygame pybind11
 ```
 
+### 🛠 Building C++ Extensions
+To ensure maximum performance in the simulation, some mathematical components are written in C++. If you modify `fast_math.cpp`, you must recompile the module:
+```bash
+cd sandbox/cpp_vision
+python setup.py build_ext --inplace
+```
+*(Note: This requires a C++ compiler like MSVC on Windows or GCC on Linux).*
+
+---
 *(Note: The engine automatically injects a mock simulation for the `RPi.GPIO` library to prevent dependency crashes when coding from environments like Windows or Mac).*
 
 ---

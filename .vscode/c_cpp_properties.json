@@ -1,0 +1,32 @@
+{
+    "configurations": [
+        {
+            "name": "Win32",
+            "includePath": [
+                "${workspaceFolder}/**",
+                "C:\\Users\\pablo\\AppData\\Local\\Programs\\Python\\Python310\\Include",
+                "C:\\Users\\pablo\\AppData\\Local\\Programs\\Python\\Python310\\lib\\site-packages\\pybind11\\include"
+            ],
+            "defines": [
+                "_DEBUG",
+                "UNICODE",
+                "_UNICODE",
+                "_ALLOW_COMPILER_AND_STL_VERSION_MISMATCH"
+            ],
+            "windowsSdkVersion": "10.0",
+            "compilerPath": "cl.exe",
+            "cStandard": "c17",
+            "cppStandard": "c++17",
+            "intelliSenseMode": "windows-msvc-x64",
+            "browse": {
+                "path": [
+                    "${workspaceFolder}",
+                    "C:\\Users\\pablo\\AppData\\Local\\Programs\\Python\\Python310\\Include",
+                    "C:\\Users\\pablo\\AppData\\Local\\Programs\\Python\\Python310\\lib\\site-packages\\pybind11\\include"
+                ],
+                "limitSymbolsToIncludedHeaders": true
+            }
+        }
+    ],
+    "version": 4
+}

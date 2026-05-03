@@ -2,12 +2,19 @@ import numpy as np
 import cv2
 import math
 
+try:
+    from sandbox.cpp_vision import fast_math
+    HAS_FAST_MATH = True
+except ImportError:
+    HAS_FAST_MATH = False
+
 class VirtualCamera:
     """
     Motor gráfico encargado de generar frames de visión sintéticos en 2D.
     Soporta perspectiva, distancia, oclusión (Painter's Algorithm) y distorsión
     de lente estilo Ojo de Pescado (Barrel Distortion).
     """
+    ENABLE_FISHEYE = True
     def __init__(self, width=320, height=240, fov_degrees=100, 
                  pitch=0.0, yaw=0.0, roll=0.0, camera_height=20.0):
         self.width = width
@@ -56,6 +63,14 @@ class VirtualCamera:
         Versión vectorizada de project_3d para procesar múltiples puntos (N, 3).
         Retorna (N, 3) con (u, v, z_cam).
         """
+        if HAS_FAST_MATH:
+            pts = np.atleast_2d(points).astype(np.float64)
+            return fast_math.project_3d_vectorized(
+                pts, float(observer.x), float(observer.y), float(observer.rangle),
+                float(self.camera_height), float(self.yaw_off), float(self.pitch),
+                float(self._near), float(self._far), float(self.focal_length), float(self.cx), float(self.cy)
+            )
+
         pts = np.atleast_2d(points)
         dx = pts[:, 0] - observer.x
         dy = pts[:, 1] - observer.y
@@ -97,6 +112,17 @@ class VirtualCamera:
 
     def project_3d(self, x_world, y_world, z_world, observer):
         """Transforma coordenadas de mundo a coordenadas de imagen (u, v) y profundidad Z."""
+        if HAS_FAST_MATH:
+            u, v, z = fast_math.project_3d_scalar(
+                float(x_world), float(y_world), float(z_world),
+                float(observer.x), float(observer.y), float(observer.rangle),
+                float(self.camera_height), float(self.yaw_off), float(self.pitch),
+                float(self._near), float(self._far), float(self.focal_length), float(self.cx), float(self.cy)
+            )
+            if z == 0.0:
+                return None
+            return int(u), int(v), z
+
         res = self.project_3d_vectorized([[x_world, y_world, z_world]], observer)
         if res[0, 2] == 0:
             return None
@@ -196,53 +222,54 @@ class VirtualCamera:
         
         # 2. Dibujar líneas del campo (Pitch)
         if hasattr(state, 'pitch') and state.pitch is not None:
-            pad = state.pitch.padding
-            w = state.pitch.width
-            h = state.pitch.height
-            pw = state.pitch.penalty_w
-            ph = state.pitch.penalty_h
-            py = h / 2 - ph / 2
-            
-            lines_data = []
-            
-            # Obtener atributos estéticos de la cancha simulada (fallbacks en caso de ser necesario)
-            safe_color = getattr(state.pitch, 'safe_color', (200, 200, 200))
-            # Ajustamos un pequeño factor multiplicativo porque las unidades se escalan por perspectiva
-            safe_thick = getattr(state.pitch, 'safe_thick', 1) 
-            main_color = getattr(state.pitch, 'main_color', (255, 255, 255))
-            main_thick = getattr(state.pitch, 'main_thick', 2)
+            if not hasattr(self, '_cached_lines_data'):
+                pad = state.pitch.padding
+                w = state.pitch.width
+                h = state.pitch.height
+                pw = state.pitch.penalty_w
+                ph = state.pitch.penalty_h
+                py = h / 2 - ph / 2
+                
+                lines_data = []
+                
+                safe_color = getattr(state.pitch, 'safe_color', (200, 200, 200))
+                safe_thick = getattr(state.pitch, 'safe_thick', 1) 
+                main_color = getattr(state.pitch, 'main_color', (255, 255, 255))
+                main_thick = getattr(state.pitch, 'main_thick', 2)
 
-            # Safe zone
-            lines_data.append({'pts': np.linspace([pad, pad, 0], [w-pad, pad, 0], 50), 'color': safe_color, 't': safe_thick})
-            lines_data.append({'pts': np.linspace([w-pad, pad, 0], [w-pad, h-pad, 0], 50), 'color': safe_color, 't': safe_thick})
-            lines_data.append({'pts': np.linspace([w-pad, h-pad, 0], [pad, h-pad, 0], 50), 'color': safe_color, 't': safe_thick})
-            lines_data.append({'pts': np.linspace([pad, h-pad, 0], [pad, pad, 0], 50), 'color': safe_color, 't': safe_thick})
-            # Middle line
-            lines_data.append({'pts': np.linspace([w / 2, pad, 0], [w / 2, h - pad, 0], 50), 'color': main_color, 't': main_thick})  
-            # Circle
-            angles = np.linspace(0, 2*np.pi, 60)
-            circle_pts = np.zeros((60, 3))
-            circle_pts[:, 0] = w / 2 + np.cos(angles) * 100
-            circle_pts[:, 1] = h / 2 + np.sin(angles) * 100
-            circle_pts[:, 2] = 0
-            lines_data.append({'pts': circle_pts, 'color': main_color, 't': main_thick})
-            
-            # Ally penalty
-            lines_data.append({'pts': np.linspace([pad, py, 0], [pad+pw, py, 0], 20), 'color': main_color, 't': main_thick})
-            lines_data.append({'pts': np.linspace([pad+pw, py, 0], [pad+pw, py+ph, 0], 30), 'color': main_color, 't': main_thick})
-            lines_data.append({'pts': np.linspace([pad+pw, py+ph, 0], [pad, py+ph, 0], 20), 'color': main_color, 't': main_thick})
-            
-            # Enemy penalty
-            lines_data.append({'pts': np.linspace([w-pad, py, 0], [w-pad-pw, py, 0], 20), 'color': main_color, 't': main_thick})
-            lines_data.append({'pts': np.linspace([w-pad-pw, py, 0], [w-pad-pw, py+ph, 0], 30), 'color': main_color, 't': main_thick})
-            lines_data.append({'pts': np.linspace([w-pad-pw, py+ph, 0], [w-pad, py+ph, 0], 20), 'color': main_color, 't': main_thick})
-            
+                # Safe zone
+                lines_data.append({'pts': np.linspace([pad, pad, 0], [w-pad, pad, 0], 25, dtype=np.float64), 'color': safe_color, 't': safe_thick})
+                lines_data.append({'pts': np.linspace([w-pad, pad, 0], [w-pad, h-pad, 0], 25, dtype=np.float64), 'color': safe_color, 't': safe_thick})
+                lines_data.append({'pts': np.linspace([w-pad, h-pad, 0], [pad, h-pad, 0], 25, dtype=np.float64), 'color': safe_color, 't': safe_thick})
+                lines_data.append({'pts': np.linspace([pad, h-pad, 0], [pad, pad, 0], 25, dtype=np.float64), 'color': safe_color, 't': safe_thick})
+                # Middle line
+                lines_data.append({'pts': np.linspace([w / 2, pad, 0], [w / 2, h - pad, 0], 25, dtype=np.float64), 'color': main_color, 't': main_thick})  
+                # Circle
+                angles = np.linspace(0, 2*np.pi, 45)
+                circle_pts = np.zeros((45, 3), dtype=np.float64)
+                circle_pts[:, 0] = w / 2 + np.cos(angles) * 100
+                circle_pts[:, 1] = h / 2 + np.sin(angles) * 100
+                circle_pts[:, 2] = 0
+                lines_data.append({'pts': circle_pts, 'color': main_color, 't': main_thick})
+                
+                # Ally penalty
+                lines_data.append({'pts': np.linspace([pad, py, 0], [pad+pw, py, 0], 10, dtype=np.float64), 'color': main_color, 't': main_thick})
+                lines_data.append({'pts': np.linspace([pad+pw, py, 0], [pad+pw, py+ph, 0], 15, dtype=np.float64), 'color': main_color, 't': main_thick})
+                lines_data.append({'pts': np.linspace([pad+pw, py+ph, 0], [pad, py+ph, 0], 10, dtype=np.float64), 'color': main_color, 't': main_thick})
+                
+                # Enemy penalty
+                lines_data.append({'pts': np.linspace([w-pad, py, 0], [w-pad-pw, py, 0], 10, dtype=np.float64), 'color': main_color, 't': main_thick})
+                lines_data.append({'pts': np.linspace([w-pad-pw, py, 0], [w-pad-pw, py+ph, 0], 15, dtype=np.float64), 'color': main_color, 't': main_thick})
+                lines_data.append({'pts': np.linspace([w-pad-pw, py+ph, 0], [w-pad, py+ph, 0], 10, dtype=np.float64), 'color': main_color, 't': main_thick})
+                
+                self._cached_lines_data = lines_data
+
             # Proyectar y dibujar cada línea segmento por segmento para perspectiva de grosor
-            for line_dict in lines_data:
+            for line_dict in self._cached_lines_data:
                 line_pts = line_dict['pts']
                 c = line_dict['color']
                 base_t = line_dict['t']
-                
+
                 res = self.project_3d_vectorized(line_pts, observer)
                 mask = (res[:, 2] > 0)
                 
@@ -361,8 +388,9 @@ class VirtualCamera:
                 # Añadir un borde sutil
                 # cv2.rectangle(frame, top_left, bottom_right, (255, 255, 255), 1)
 
-        # 6. Aplica la lente Fisheye
-        frame = cv2.remap(frame, self.map_x, self.map_y, cv2.INTER_LINEAR, 
-                          borderMode=cv2.BORDER_CONSTANT, borderValue=(0,0,0))
+        # 6. Aplica la lente Fisheye (Solo si está habilitado)
+        if self.ENABLE_FISHEYE:
+            frame = cv2.remap(frame, self.map_x, self.map_y, cv2.INTER_LINEAR, 
+                              borderMode=cv2.BORDER_CONSTANT, borderValue=(0,0,0))
                           
         return frame

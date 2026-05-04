@@ -189,11 +189,11 @@ class MatchRules:
         if ball.dragging: return
         tolerance = 5.0
         if ((ball.x <= ball.radius + tolerance) and (self.ally_goal.rect.top <= ball.y <= self.ally_goal.rect.bottom)):
-            self.count_goals("blue")
+            self.count_goals("yellow")
             self.kickoff_team = "blue"
             self.setup_kickoff(robots, ball)
         elif ((ball.x >= self.width - ball.radius - tolerance) and (self.enemy_goal.rect.top <= ball.y <= self.enemy_goal.rect.bottom)):
-            self.count_goals("yellow")
+            self.count_goals("blue")
             self.kickoff_team = "yellow"
             self.setup_kickoff(robots, ball)
 

@@ -1,5 +1,7 @@
+assets/*
 sandbox/vision_cpp/build/
 sandbox/vision_cpp/*.pyd
 sandbox/vision_cpp/*.pyd.old*
 sandbox/vision_cpp/*.txt
 __pycache__/
+!*.ico

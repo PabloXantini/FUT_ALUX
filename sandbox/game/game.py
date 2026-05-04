@@ -14,6 +14,8 @@ class GameController:
         pygame.init()
         self.width = width
         self.height = height
+        icon_app = pygame.image.load('assets/aluxeiii.ico')
+        pygame.display.set_icon(icon_app)
         self.screen = pygame.display.set_mode((self.width, self.height))
         pygame.display.set_caption("FUT_ALUX - 2D Match Sandbox")
         self.clock = pygame.time.Clock()
@@ -82,18 +84,21 @@ class GameController:
 
         if self.rules.match_over:
             font_large = pygame.font.SysFont(None, 72)
+            font_larger = pygame.font.SysFont(None, 80)
+            font_small2 = pygame.font.SysFont(None, 36)
+
             if self.rules.score["blue"] > self.rules.score["yellow"]:
                 result = "GANA AZUL"
             elif self.rules.score["blue"] < self.rules.score["yellow"]:
                 result = "GANA AMARILLO"
             else:
                 result = "EMPATE"
-            over_txt = font_large.render(f"FIN DEL JUEGO\n{result}", True, (255, 255, 255))
-            self.screen.blit(over_txt, (self.width / 2 - over_txt.get_width() // 2, self.height / 2 - 30))
-            
-            font_small2 = pygame.font.SysFont(None, 36)
+            over_txt = font_large.render(f"FIN DEL JUEGO", True, (255, 255, 255))
+            self.screen.blit(over_txt, (self.width / 2 - over_txt.get_width() // 2, self.height / 2 - 70))
+            result_txt = font_larger.render(result, True, (255, 255, 255))
+            self.screen.blit(result_txt, (self.width / 2 - result_txt.get_width() // 2, self.height / 2 - 20))
             restart_txt = font_small2.render("Presiona ENTER para reiniciar", True, (200, 200, 200))
-            self.screen.blit(restart_txt, (self.width / 2 - restart_txt.get_width() // 2, self.height / 2 + 30))
+            self.screen.blit(restart_txt, (self.width / 2 - restart_txt.get_width() // 2, self.height / 2 + 40))
 
         # 5. UI: Depuración FSM
         if robots:
@@ -147,7 +152,7 @@ class GameController:
                     r = idx // cols
                     c_idx = idx % cols
                     grid[r*h:(r+1)*h, c_idx*w:(c_idx+1)*w] = frame
-                    
+
                 cv2.imshow("Virtual Cameras", grid)
         
     def cleanup(self):

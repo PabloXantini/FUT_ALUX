@@ -32,14 +32,24 @@ class MatchRules:
         self.RULE_PITCH_BOUNDS_BAN = True
         self.RULE_SAFE_LINES_BAN = True
 
-        self.neutral_positions = {
+        self.NEUTRAL_POINTS = {
             "blue": [(200, 150), (200, 450)],
             "yellow": [(600, 150), (600, 450)]
         }
+        self._all_neutral_points = self.NEUTRAL_POINTS["blue"] + self.NEUTRAL_POINTS["yellow"]
+        self.last_ball_neutral_idx = -1
 
-    # --- Helpers ---
+    def _place_at_distance_from_ball(self, r, ball, distance, variation=0.0, base_angle=None):
+        if base_angle is None:
+            dist = math.hypot(r.x - ball.x, r.y - ball.y)
+            base_angle = math.atan2(r.y - ball.y, r.x - ball.x) if dist > 0.1 else (math.pi if r.team == "blue" else 0.0)
+        
+        angle = base_angle + variation
+        r.x = ball.x + math.cos(angle) * distance
+        r.y = ball.y + math.sin(angle) * distance
+
     def _get_free_neutral_points(self, r, robots):
-        neutral_pts = self.neutral_positions[r.team]
+        neutral_pts = self.NEUTRAL_POINTS[r.team]
         free_pts = []
         for pt in neutral_pts:
             occupied = False
@@ -106,7 +116,30 @@ class MatchRules:
                 ball.last_kicked_by.ban_timer = 60.0
             self.reset_ball(ball)
 
-    # --- Match Control ---
+    def _rule_ball_inactivity(self, dt, ball, robots):
+        # Ball untouched
+        if abs(ball.vx) < 0.1 and abs(ball.vy) < 0.1 and not ball.dragging:
+            self.ball_untouched_timer += dt
+        else:
+            self.ball_untouched_timer = 0.0
+        # Ball inactivity
+        if self.ball_untouched_timer >= self.BALL_UNTOUCHED_LIMIT:
+            self.ball_untouched_timer = 0.0
+            # Find closest neutral point
+            dists = [math.hypot(p[0] - ball.x, p[1] - ball.y) for p in self._all_neutral_points]
+            closest_idx = dists.index(min(dists))
+            # If already at closest (or very close), pick next one in rotation
+            if dists[closest_idx] < 10:
+                self.last_ball_neutral_idx = (closest_idx + 1) % len(self._all_neutral_points)
+            else:
+                self.last_ball_neutral_idx = closest_idx
+            # Get the target position
+            target_pt = self._all_neutral_points[self.last_ball_neutral_idx]
+            # Move ball
+            ball.x, ball.y = target_pt
+            ball.vx, ball.vy = 0, 0
+            
+    # MATCH CONTROL
     def reset_match(self, robots, ball):
         self.score = {"blue": 0, "yellow": 0}
         self.time_elapsed = 0.0
@@ -124,13 +157,22 @@ class MatchRules:
         self.ball_untouched_timer = 0.0
 
     def setup_kickoff(self, robots, ball):
+        # 1. Determine kickoff type: Neutral if any robot was banned
+        anyone_banned = any(r.ban_timer > 0 for r in robots)
+        kickoff_type = "neutral" if anyone_banned else "initial"
+        
         self.reset_ball(ball)
         self.is_kickoff = True
         
-        assigned_kickoff = False
+        assigned_kickoff_striker = False
+        center_x = self.width / 2
+        
         for r in robots:
+            # Reset ban status but remember it for the logic above
             r.ban_timer = 0.0
             r.was_banned = False
+            
+            # Base positions (clamped to their half)
             if getattr(r, 'is_random_kickoff', False):
                 r.kickoff_x = random.uniform(100, self.width - 100)
                 r.kickoff_y = random.uniform(100, self.height - 100)
@@ -138,33 +180,33 @@ class MatchRules:
             base_x = r.kickoff_x
             base_y = r.kickoff_y
             
+            # Ensure they are in their half
             if r.team == "blue":
-                base_x = min(base_x, self.width / 2 - r.radius)
+                base_x = min(base_x, center_x - r.radius - 5)
             else:
-                base_x = max(base_x, self.width / 2 + r.radius)
+                base_x = max(base_x, center_x + r.radius + 5)
             
-            if r.team == self.kickoff_team:
-                if not assigned_kickoff:
-                    r.x = ball.x - 60 if r.team == "blue" else ball.x + 60
-                    r.y = ball.y
-                    assigned_kickoff = True
+            # Positioning logic
+            if kickoff_type == "initial":
+                if r.team == self.kickoff_team and not assigned_kickoff_striker:
+                    # Striker near the ball
+                    angle = math.pi if r.team == "blue" else 0.0
+                    variation = getattr(r, 'kickoff_angle_variation', 0.0)
+                    self._place_at_distance_from_ball(r, ball, 60, variation=variation, base_angle=angle)
+                    assigned_kickoff_striker = True
                 else:
-                    r.x = base_x + random.uniform(-10, 10)
-                    r.y = base_y + random.uniform(-10, 10)
-            else:
+                    r.x = base_x
+                    r.y = base_y
+                    # If enemy, must be outside circle (100 units)
+                    if r.team != self.kickoff_team:
+                        self._place_at_distance_from_ball(r, ball, 100 + r.radius + ball.radius)
+            else: # Neutral kickoff
                 r.x = base_x
                 r.y = base_y
-                dist = math.hypot(r.x - ball.x, r.y - ball.y)
-                min_dist = 100 + r.radius + ball.radius
-                if dist < min_dist:
-                    if dist == 0:
-                        dir_x, dir_y = (1, 0) if r.team == "blue" else (-1, 0)
-                    else:
-                        dir_x = (r.x - ball.x) / dist
-                        dir_y = (r.y - ball.y) / dist
-                    r.x = ball.x + dir_x * (min_dist + 5)
-                    r.y = ball.y + dir_y * (min_dist + 5)
+                # Everyone outside circle
+                self._place_at_distance_from_ball(r, ball, 100 + r.radius + ball.radius)
 
+        # Orientation
         for team in ["blue", "yellow"]:
             team_robots = [r for r in robots if r.team == team]
             if not team_robots: continue
@@ -238,21 +280,8 @@ class MatchRules:
         # Bounds (Safe zone) check for ball
         self._rule_safe_lines(ball, self.RULE_SAFE_LINES_BAN)
 
-        # Ball untouched
-        if abs(ball.vx) < 0.1 and abs(ball.vy) < 0.1 and not ball.dragging:
-            self.ball_untouched_timer += dt
-        else:
-            self.ball_untouched_timer = 0.0
-
-        if self.ball_untouched_timer >= self.BALL_UNTOUCHED_LIMIT:
-            self.ball_untouched_timer = 0.0
-            assigned = {"blue": 0, "yellow": 0}
-            for r in robots:
-                if r.ban_timer <= 0 and assigned[r.team] < 2:
-                    pos = self.neutral_positions[r.team][assigned[r.team]]
-                    r.x, r.y = pos
-                    assigned[r.team] += 1
-            self.reset_ball(ball)
+        # Ball inactivity check
+        self._rule_ball_inactivity(dt, ball, robots)
 
         # Missing team penalty
         for team in ["blue", "yellow"]:

@@ -30,6 +30,8 @@ typedef ptrdiff_t GLsizeiptr;
 #define GL_COLOR_ATTACHMENT0              0x8CE0
 #define GL_DEPTH_ATTACHMENT               0x8D00
 #define GL_FRAMEBUFFER_COMPLETE           0x8CD5
+#define GL_READ_FRAMEBUFFER               0x8CA8
+#define GL_DRAW_FRAMEBUFFER               0x8CA9
 #define GL_DEPTH_COMPONENT24              0x81A6
 #define GL_PIXEL_PACK_BUFFER              0x88EB
 #define GL_STREAM_READ                    0x88E1
@@ -61,6 +63,7 @@ typedef void (APIENTRYP PFNGLGENFRAMEBUFFERSPROC) (GLsizei n, GLuint *framebuffe
 typedef void (APIENTRYP PFNGLBINDFRAMEBUFFERPROC) (GLenum target, GLuint framebuffer);
 typedef void (APIENTRYP PFNGLFRAMEBUFFERTEXTURE2DPROC) (GLenum target, GLenum attachment, GLenum textarget, GLuint texture, GLint level);
 typedef GLenum (APIENTRYP PFNGLCHECKFRAMEBUFFERSTATUSPROC) (GLenum target);
+typedef void (APIENTRYP PFNGLBLITFRAMEBUFFERPROC) (GLint srcX0, GLint srcY0, GLint srcX1, GLint srcY1, GLint dstX0, GLint dstY0, GLint dstX1, GLint dstY1, GLbitfield mask, GLenum filter);
 typedef GLint (APIENTRYP PFNGLGETUNIFORMLOCATIONPROC) (GLuint program, const GLchar *name);
 typedef void (APIENTRYP PFNGLUNIFORM1FPROC) (GLint location, GLfloat v0);
 typedef void (APIENTRYP PFNGLUNIFORM1IPROC) (GLint location, GLint v0);
@@ -101,6 +104,7 @@ GL_FUNC_DECL(GENFRAMEBUFFERS)
 GL_FUNC_DECL(BINDFRAMEBUFFER)
 GL_FUNC_DECL(FRAMEBUFFERTEXTURE2D)
 GL_FUNC_DECL(CHECKFRAMEBUFFERSTATUS)
+GL_FUNC_DECL(BLITFRAMEBUFFER)
 GL_FUNC_DECL(GETUNIFORMLOCATION)
 GL_FUNC_DECL(UNIFORM1F)
 GL_FUNC_DECL(UNIFORM1I)
@@ -138,6 +142,7 @@ GL_FUNC_DECL(ACTIVETEXTURE)
 #define glBindFramebuffer glBINDFRAMEBUFFER
 #define glFramebufferTexture2D glFRAMEBUFFERTEXTURE2D
 #define glCheckFramebufferStatus glCHECKFRAMEBUFFERSTATUS
+#define glBlitFramebuffer glBLITFRAMEBUFFER
 #define glGetUniformLocation glGETUNIFORMLOCATION
 #define glUniform1f glUNIFORM1F
 #define glUniform1i glUNIFORM1I

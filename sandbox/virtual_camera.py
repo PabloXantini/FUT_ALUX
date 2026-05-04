@@ -64,6 +64,12 @@ class VirtualCamera:
         # - zoom   → Factor de zoom del resultado final
         self.cpp_backend.set_fisheye(k, zoom)
 
+    def set_motion_blur(self, strength=0.5, samples=3):
+        # Ajusta el efecto de desenfoque de movimiento.
+        # - strength: 0.0 (apagado) a 1.0 (máximo rastro)
+        # - samples: cantidad de frames de historial (1 a 7)
+        self.cpp_backend.set_motion_blur(strength, samples)
+
     def render(self, observer, state):
         if rv and self.cpp_backend.is_available():
             cam = rv.CameraState()

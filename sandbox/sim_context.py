@@ -41,7 +41,8 @@ class SimContext(RobotContext):
             diffuse=0.8,
             x=320, y=240, z=500 # Luz cenital simulada
         )
-        self.camera.set_fisheye_params(k=1.4, zoom=1.7)
+        self.camera.set_fisheye_params(k=-1.4, zoom=1.7)
+        self.camera.set_motion_blur(strength=0.3, samples=3)
 
     def link_robot(self, robot_entity):
         self.robot = robot_entity

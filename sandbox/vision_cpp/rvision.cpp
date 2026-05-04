@@ -73,7 +73,13 @@ PYBIND11_MODULE(rvision, m) {
         .def("initialize", &Renderer::initialize)
         .def("render", &Renderer::render)
         .def("set_light", &Renderer::setLight)
-        .def("set_fisheye", &Renderer::setFisheye, py::arg("k")=-0.4f, py::arg("zoom")=1.0f)
+        // Post-processing
+        .def("set_fisheye", &Renderer::setFisheye,
+             py::arg("k")=-0.4f, py::arg("zoom")=1.0f)
+        .def("set_motion_blur", &Renderer::setMotionBlur,
+             py::arg("strength")=0.5f, py::arg("samples")=3,
+             "strength: 0.0 (sin blur) .. 1.0 (blur máximo). "
+             "samples: cantidad de frames del historial a mezclar (1..7).")
         .def("get_frame", [](Renderer& self) {
             const auto& frame = self.getFrame();
             return py::array_t<unsigned char>(

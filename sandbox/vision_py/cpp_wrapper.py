@@ -31,6 +31,10 @@ class OpenGLRenderer:
         if self.renderer:
             self.renderer.set_fisheye(k, zoom)
 
+    def set_motion_blur(self, strength=0.5, samples=3):
+        if self.renderer:
+            self.renderer.set_motion_blur(strength, samples)
+
     def render(self, cam_state, objects):
         if not self.renderer: return None
         

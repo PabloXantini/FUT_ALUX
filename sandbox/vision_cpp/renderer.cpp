@@ -109,8 +109,7 @@ private:
     HWND m_hwnd; HDC m_hdc; HGLRC m_hrc;
 };
 
-// --- Renderer Implementation ---
-
+// Renderer Implementation
 Renderer::Renderer(int width, int height) : m_width(width), m_height(height) {
     m_context = std::make_unique<Win32Context>();
     m_frameBuffer.resize(width * height * 4);
@@ -126,19 +125,25 @@ bool Renderer::initialize() {
     return true;
 }
 
+// BUFFERS
+static GLuint createColorTexture(int w, int h) {
+    GLuint tex;
+    glGenTextures(1, &tex);
+    glBindTexture(GL_TEXTURE_2D, tex);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, w, h, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    return tex;
+}
+
 void Renderer::setupBuffers() {
     // --- Scene FBO ---
     glGenFramebuffers(1, &m_fbo);
     glBindFramebuffer(GL_FRAMEBUFFER, m_fbo);
 
-    glGenTextures(1, &m_colorTex);
-    glBindTexture(GL_TEXTURE_2D, m_colorTex);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, m_width, m_height, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
-    // Filters required for texture completeness (allows sampling in fisheye pass)
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    m_colorTex = createColorTexture(m_width, m_height);
     glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, m_colorTex, 0);
 
     glGenTextures(1, &m_depthTex);
@@ -153,34 +158,46 @@ void Renderer::setupBuffers() {
     glBufferData(GL_PIXEL_PACK_BUFFER, m_width * m_height * 4, NULL, GL_STREAM_READ);
     glBindBuffer(GL_PIXEL_PACK_BUFFER, 0);
 
-    // --- Post-processing FBO (fisheye output) ---
+    // POST-PROCESSING FBO (salida final: fisheye + motion blur)
     glGenFramebuffers(1, &m_postFbo);
     glBindFramebuffer(GL_FRAMEBUFFER, m_postFbo);
-    glGenTextures(1, &m_postTex);
-    glBindTexture(GL_TEXTURE_2D, m_postTex);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, m_width, m_height, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    m_postTex = createColorTexture(m_width, m_height);
     glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, m_postTex, 0);
+
+    // Motion blur: ring-buffer de texturas de historial
+    glGenFramebuffers(MAX_BLUR_HISTORY, m_historyFbo);
+    for (int i = 0; i < MAX_BLUR_HISTORY; i++) {
+        m_historyTex[i] = createColorTexture(m_width, m_height);
+        // Inicializar con negro
+        std::vector<unsigned char> black(m_width * m_height * 4, 0);
+        glBindTexture(GL_TEXTURE_2D, m_historyTex[i]);
+        glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, m_width, m_height, GL_RGBA, GL_UNSIGNED_BYTE, black.data());
+        // Asociar FBO para poder copiar frames previos ahí
+        glBindFramebuffer(GL_FRAMEBUFFER, m_historyFbo[i]);
+        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, m_historyTex[i], 0);
+    }
 
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
 
+// SHADERS
 void Renderer::setupShaders() {
     m_baseShader = std::make_unique<Shader>();
-    m_baseShader->load("sandbox/vision_cpp/shaders/base.vert", "sandbox/vision_cpp/shaders/base.frag");
-    
-    m_fisheyeShader = std::make_unique<Shader>();
-    m_fisheyeShader->load("sandbox/vision_cpp/shaders/fisheye.vert", "sandbox/vision_cpp/shaders/fisheye.frag");
+    m_baseShader->load("sandbox/vision_cpp/shaders/base.vert",
+                       "sandbox/vision_cpp/shaders/base.frag");
+
+    // Shader de post-procesamiento (fisheye + motion blur)
+    m_postShader = std::make_unique<Shader>();
+    m_postShader->load("sandbox/vision_cpp/shaders/post_processing.vert",
+                       "sandbox/vision_cpp/shaders/post_processing.frag");
 }
 
+// PRIMITIVES
 void Renderer::setupPrimitives() {
     // Cube
     m_cubeMesh = std::make_unique<Mesh>();
     m_cubeMesh->setup(Primitives::createCube());
-    
+
     // Cylinder
     m_cylinderMesh = std::make_unique<Mesh>();
     m_cylinderMesh->setup(Primitives::createCylinder());
@@ -212,8 +229,28 @@ void Renderer::setupPrimitives() {
     m_dynamicMesh->count = 0;
 }
 
+// SET MOTION BLUR
+void Renderer::setMotionBlur(float strength, int samples) {
+    m_motionBlurStrength = strength;
+    m_motionBlurSamples  = (samples < 0) ? 0 : (samples > MAX_BLUR_HISTORY ? MAX_BLUR_HISTORY : samples);
+}
+
+// ROTATE HISTORY: copies current frame (m_colorTex) to the oldest slot in the ring-buffer
+void Renderer::rotateHistory() {
+    // Blit m_colorTex → m_historyTex[m_historyHead]
+    glBindFramebuffer(GL_READ_FRAMEBUFFER, m_fbo);
+    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, m_historyFbo[m_historyHead]);
+    glBlitFramebuffer(0, 0, m_width, m_height,
+                      0, 0, m_width, m_height,
+                      GL_COLOR_BUFFER_BIT, GL_NEAREST);
+    // Advance ring-buffer head
+    m_historyHead = (m_historyHead + 1) % MAX_BLUR_HISTORY;
+}
+
+// RENDER
 void Renderer::render(const CameraState& cam, const std::vector<RenderObject>& objects) {
     m_context->makeCurrent();
+    // PASS 1: 3D Scene → m_fbo / m_colorTex
     glBindFramebuffer(GL_FRAMEBUFFER, m_fbo);
     glViewport(0, 0, m_width, m_height);
     glEnable(GL_DEPTH_TEST);
@@ -234,7 +271,7 @@ void Renderer::render(const CameraState& cam, const std::vector<RenderObject>& o
 
     for (const auto& obj : objects) {
         m_baseShader->setVec4("color", obj.color.r, obj.color.g, obj.color.b, obj.color.a);
-        
+
         switch (obj.type) {
             case RenderType::CIRCLE: {
                 m_baseShader->setInt("isCircle", 1);
@@ -282,22 +319,41 @@ void Renderer::render(const CameraState& cam, const std::vector<RenderObject>& o
         }
     }
 
-    // --- SECOND PASS: Fish-eye Distortion ---
+    // PASS 2: Post-processing (fisheye + motion blur) → m_postFbo / m_postTex
     glBindFramebuffer(GL_FRAMEBUFFER, m_postFbo);
-    glClear(GL_COLOR_BUFFER_BIT); // No need for depth here
+    glClear(GL_COLOR_BUFFER_BIT);
     glDisable(GL_DEPTH_TEST);
 
-    m_fisheyeShader->use();
-    m_fisheyeShader->setInt("screenTexture", 0);
-    m_fisheyeShader->setFloat("k", m_fisheyeK);
-    m_fisheyeShader->setFloat("zoom", m_fisheyeZoom);
-    
+    m_postShader->use();
+
+    // Bind frame on 0
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, m_colorTex);
-    
+    m_postShader->setInt("screenTexture", 0);
+    // Bind history on 1..MAX_BLUR_HISTORY
+    // The history is ordered from most recent to oldest:
+    // slot (head-1) = frame N-1, slot (head-2) = frame N-2, etc.
+    for (int i = 0; i < MAX_BLUR_HISTORY; i++) {
+        int slot = (m_historyHead - 1 - i + MAX_BLUR_HISTORY) % MAX_BLUR_HISTORY;
+        glActiveTexture(GL_TEXTURE1 + i);
+        glBindTexture(GL_TEXTURE_2D, m_historyTex[slot]);
+        // historyTex[i] en el shader
+        std::string name = "historyTex[" + std::to_string(i) + "]";
+        m_postShader->setInt(name, 1 + i);
+    }
+
+    m_postShader->setFloat("k",                  m_fisheyeK);
+    m_postShader->setFloat("zoom",               m_fisheyeZoom);
+    m_postShader->setInt  ("motionBlurSamples",  m_motionBlurSamples);
+    m_postShader->setFloat("motionBlurStrength", m_motionBlurStrength);
     m_screenQuadMesh->draw();
+    // Save current frame in history (AFTER post-process)
+    if (m_motionBlurSamples > 0) {
+        rotateHistory();
+    }
 }
 
+// GET FRAME
 const std::vector<unsigned char>& Renderer::getFrame() {
     glBindFramebuffer(GL_FRAMEBUFFER, m_postFbo);
     glBindBuffer(GL_PIXEL_PACK_BUFFER, m_pbo);

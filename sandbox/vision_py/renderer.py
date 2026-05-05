@@ -20,10 +20,10 @@ class Renderer:
         self.update_scene(state)
         
         # Preferir C++ si está disponible
-        #if self.cpp_backend.is_available():
-        #    return self.cpp_backend.render(observer, self.scene, camera_params)
-        #else:
-        return self.py_backend.render(observer, self.scene, camera_params)
+        if self.cpp_backend.is_available():
+           return self.cpp_backend.render(observer, self.scene, camera_params)
+        else:
+           return self.py_backend.render(observer, self.scene, camera_params)
 
     def load_scene(self, state):
         """ Construye la geometría estática del campo """
@@ -110,14 +110,15 @@ class Renderer:
         for r in state.robots:
             if r.ban_timer > 0: continue
             robot = RenderObject(RenderObject.TYPE_CYLINDER, (r.color[0]/255*dark, r.color[1]/255*dark, r.color[2]/255*dark, 1.0))
-            robot.position = [r.x, r.y, 30]
-            robot.size = [r.radius*2, r.radius*2, 60]
+            robot.position = [r.x, r.y, r.z_height/2]
+            robot.size = [r.radius*2, r.radius*2, r.z_height]
             self.scene.dynamic_objects.append(robot)
 
     def _add_quad(self, obj, p1, p2, p3, p4, n):
         v1, v2, v3, v4 = Vertex(*p1, *n), Vertex(*p2, *n), Vertex(*p3, *n), Vertex(*p4, *n)
         obj.vertices.extend([v1, v2, v3, v1, v3, v4])
-
+    
+    # OPTIONS FOR RENDERING
     def set_light(self, ambient, diffuse, light_pos):
         self.cpp_backend.set_light(ambient, diffuse, light_pos)
 

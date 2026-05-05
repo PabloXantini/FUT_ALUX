@@ -13,6 +13,7 @@ public:
     bool load(const std::string& vertPath, const std::string& fragPath);
     void use();
 
+    void setBool(const std::string& name, bool value);
     void setInt(const std::string& name, int value);
     void setFloat(const std::string& name, float value);
     void setVec2(const std::string& name, float x, float y);

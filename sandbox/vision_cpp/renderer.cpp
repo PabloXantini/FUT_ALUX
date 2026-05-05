@@ -342,10 +342,12 @@ void Renderer::render(const CameraState& cam, const std::vector<RenderObject>& o
         m_postShader->setInt(name, 1 + i);
     }
 
-    m_postShader->setFloat("k",                  m_fisheyeK);
-    m_postShader->setFloat("zoom",               m_fisheyeZoom);
-    m_postShader->setInt  ("motionBlurSamples",  m_motionBlurSamples);
+    m_postShader->setFloat("k", m_fisheyeK);
+    m_postShader->setFloat("zoom", m_fisheyeZoom);
+    m_postShader->setBool("enableFisheye", cam.use_fisheye);
     m_postShader->setFloat("motionBlurStrength", m_motionBlurStrength);
+    m_postShader->setInt("motionBlurSamples", m_motionBlurSamples);
+    m_postShader->setBool("enableMotionBlur", cam.use_motion_blur);
     m_screenQuadMesh->draw();
     // Save current frame in history (AFTER post-process)
     if (m_motionBlurSamples > 0) {

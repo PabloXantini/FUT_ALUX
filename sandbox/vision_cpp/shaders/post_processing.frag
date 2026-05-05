@@ -6,27 +6,34 @@ in vec2 TexCoords;
 uniform sampler2D screenTexture;  // Current frame
 uniform float k;                  // Barrel distortion factor (negative = barrel, positive = pincushion)
 uniform float zoom;               // Zoom compensation
+uniform bool enableFisheye;
 
 // --- Motion Blur ---
 uniform sampler2D historyTex[7];  // Previous frames history (max 7 slots)
 uniform int motionBlurSamples;    // Cuántos slots de historial usar (0 = desactivado)
 uniform float motionBlurStrength; // 0.0 = sin blur, 1.0 = blur máximo
+uniform bool enableMotionBlur;
 
 void main() {
     // 1) Apply fisheye distortion to UVs
-    vec2 uv = TexCoords - 0.5;
-    float r2 = dot(uv, uv);
-    vec2 distortedUV = uv * (1.0 - k * r2);
-    distortedUV = (distortedUV / zoom) + 0.5;
-    // 2) Out of range → black
-    if (distortedUV.x < 0.0 || distortedUV.x > 1.0 ||
-        distortedUV.y < 0.0 || distortedUV.y > 1.0) {
-        FragColor = vec4(0.0, 0.0, 0.0, 1.0);
-        return;
+    vec2 distortedUV = TexCoords;
+    if (enableFisheye) {
+        vec2 uv = TexCoords - 0.5;
+        float r2 = dot(uv, uv);
+        distortedUV = uv * (1.0 - k * r2);
+        distortedUV = (distortedUV / zoom) + 0.5;
+        
+        // 2) Out of range → black
+        if (distortedUV.x < 0.0 || distortedUV.x > 1.0 ||
+            distortedUV.y < 0.0 || distortedUV.y > 1.0) {
+            FragColor = vec4(0.0, 0.0, 0.0, 1.0);
+            return;
+        }
     }
+    
     // 3) Sample current frame (with distorted UVs)
     vec4 currentColor = texture(screenTexture, distortedUV);
-    if (motionBlurSamples <= 0) {
+    if (!enableMotionBlur || motionBlurSamples <= 0) {
         FragColor = currentColor;
         return;
     }

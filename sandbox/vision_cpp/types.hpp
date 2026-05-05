@@ -49,6 +49,8 @@ struct CameraState {
     float cx, cy;
     int width, height;
     float near_plane, far_plane;
+    bool use_fisheye;
+    bool use_motion_blur;
 };
 
 class IGraphicsContext {

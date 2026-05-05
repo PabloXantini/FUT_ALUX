@@ -60,7 +60,9 @@ PYBIND11_MODULE(rvision, m) {
         .def_readwrite("width", &CameraState::width)
         .def_readwrite("height", &CameraState::height)
         .def_readwrite("near_plane", &CameraState::near_plane)
-        .def_readwrite("far_plane", &CameraState::far_plane);
+        .def_readwrite("far_plane", &CameraState::far_plane)
+        .def_readwrite("use_fisheye", &CameraState::use_fisheye)
+        .def_readwrite("use_motion_blur", &CameraState::use_motion_blur);
 
     py::class_<LightState>(m, "LightState")
         .def(py::init<>())

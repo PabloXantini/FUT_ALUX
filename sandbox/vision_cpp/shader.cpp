@@ -47,6 +47,10 @@ int Shader::getUniform(const std::string &name) {
   return loc;
 }
 
+void Shader::setBool(const std::string &name, bool value) {
+  glUniform1i(getUniform(name), (int)value);
+}
+
 void Shader::setInt(const std::string &name, int value) {
   glUniform1i(getUniform(name), value);
 }

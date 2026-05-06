@@ -23,7 +23,7 @@ class Renderer:
         if self.cpp_backend.is_available():
            return self.cpp_backend.render(observer, self.scene, camera_params)
         else:
-           return self.py_backend.render(observer, self.scene, camera_params)
+            return self.py_backend.render(observer, self.scene, camera_params)
 
     def load_scene(self, state):
         """ Construye la geometría estática del campo """
@@ -71,28 +71,36 @@ class Renderer:
 
         self.scene.static_objects.append(lines)
         
+        eps = 0.5
         # 3. Porterías
-        goal_ext_verts = []
         for g in state.goals:
             c = (g.team_color[0]/255, g.team_color[1]/255, g.team_color[2]/255, 1.0)
             goal = RenderObject(RenderObject.TYPE_MESH, c)
             x0, x1, y0, y1, z0, z1 = g.x, g.x+g.width, g.y, g.y+g.height, 0, g.z_height
-            self._add_quad(goal, [x0,y0,z1], [x1,y0,z1], [x1,y1,z1], [x0,y1,z1], [0,0,-1])
-            if x0 < w/2: self._add_quad(goal, [x0,y0,z0], [x0,y1,z0], [x0,y1,z1], [x0,y0,z1], [1,0,0])
-            else: self._add_quad(goal, [x1,y0,z0], [x1,y1,z0], [x1,y1,z1], [x1,y0,z1], [-1,0,0])
-            self._add_quad(goal, [x0,y0,z0], [x1,y0,z0], [x1,y0,z1], [x0,y0,z1], [0,1,0])
-            self._add_quad(goal, [x0,y1,z0], [x1,y1,z0], [x1,y1,z1], [x0,y1,z1], [0,-1,0])
+            # Internal faces
+            self._add_quad(goal, [x0,y0,z1], [x1,y0,z1], [x1,y1,z1], [x0,y1,z1], [0,0,-1])              # Ceiling
+            if x0 < mid_x: self._add_quad(goal, [x0,y0,z0], [x0,y1,z0], [x0,y1,z1], [x0,y0,z1], [1,0,0])  # Bottom 
+            else: self._add_quad(goal, [x1,y0,z0], [x1,y1,z0], [x1,y1,z1], [x1,y0,z1], [-1,0,0])        # Bottom
+            self._add_quad(goal, [x0,y0,z0], [x1,y0,z0], [x1,y0,z1], [x0,y0,z1], [0,1,0])               # Side L
+            self._add_quad(goal, [x0,y1,z0], [x1,y1,z0], [x1,y1,z1], [x0,y1,z1], [0,-1,0])              # Side R
             self.scene.static_objects.append(goal)
-            goal_ext_verts.append(([[x0,y0,z1+0.5], [x1,y0,z1+0.5], [x1,y1,z1+0.5], [x0,y1,z1+0.5]], [0,0,1]))
+            # External faces
+            c = (0, 0, 0, 1.0)
+            goal_ext = RenderObject(RenderObject.TYPE_MESH, c)
+            self._add_quad(goal_ext, [x0,y0,z1+eps], [x1,y0,z1+eps], [x1,y1,z1+eps], [x0,y1,z1+eps], [0,0,1])              # Ceiling
+            if x0 < w/2: self._add_quad(goal_ext, [x0-eps,y0,z0], [x0-eps,y1,z0], [x0-eps,y1,z1], [x0-eps,y0,z1], [-1,0,0])  # Bottom 
+            else: self._add_quad(goal_ext, [x1+eps,y0,z0], [x1+eps,y1,z0], [x1+eps,y1,z1], [x1+eps,y0,z1], [1,0,0])        # Bottom
+            self._add_quad(goal_ext, [x0,y0-eps,z0], [x1,y0-eps,z0], [x1,y0-eps,z1], [x0,y0-eps,z1], [0,-1,0])               # Side L
+            self._add_quad(goal_ext, [x0,y1+eps,z0], [x1,y1+eps,z0], [x1,y1+eps,z1], [x0,y1+eps,z1], [0,1,0])              # Side R
+            self.scene.static_objects.append(goal_ext)
 
         # 4. Paredes
-        wall_h, eps = 60.0, 1.0
+        wall_h = 60.0
         walls = RenderObject(RenderObject.TYPE_MESH, (0, 0, 0, 1.0))
         self._add_quad(walls, [-eps,-eps,0], [-eps,h+eps,0], [-eps,h+eps,wall_h], [-eps,-eps,wall_h], [1,0,0])
         self._add_quad(walls, [w+eps,-eps,0], [w+eps,h+eps,0], [w+eps,h+eps,wall_h], [w+eps,-eps,wall_h], [-1,0,0])
         self._add_quad(walls, [-eps,-eps,0], [w+eps,-eps,0], [w+eps,-eps,wall_h], [-eps,-eps,wall_h], [0,1,0])
         self._add_quad(walls, [-eps,h+eps,0], [w+eps,h+eps,0], [w+eps,h+eps,wall_h], [-eps,h+eps,wall_h], [0,-1,0])
-        for ext_v, norm in goal_ext_verts: self._add_quad(walls, ext_v[0], ext_v[1], ext_v[2], ext_v[3], norm)
         self.scene.static_objects.append(walls)
 
         self.scene.initialized = True
@@ -103,7 +111,8 @@ class Renderer:
         if state.ball:
             ball = RenderObject(RenderObject.TYPE_CIRCLE, (1.0, 0.4, 0.0, 1.0))
             ball.position = [state.ball.x, state.ball.y, state.ball.radius]
-            ball.size = [state.ball.radius*2, state.ball.radius*2, state.ball.radius*2]
+            diameter = state.ball.radius*2
+            ball.size = [diameter, diameter, diameter]
             self.scene.dynamic_objects.append(ball)
             
         dark = 0.1
@@ -111,7 +120,8 @@ class Renderer:
             if r.ban_timer > 0: continue
             robot = RenderObject(RenderObject.TYPE_CYLINDER, (r.color[0]/255*dark, r.color[1]/255*dark, r.color[2]/255*dark, 1.0))
             robot.position = [r.x, r.y, r.z_height/2]
-            robot.size = [r.radius*2, r.radius*2, r.z_height]
+            diameter = r.radius*2
+            robot.size = [diameter, diameter, r.z_height]
             self.scene.dynamic_objects.append(robot)
 
     def _add_quad(self, obj, p1, p2, p3, p4, n):

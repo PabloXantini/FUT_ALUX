@@ -19,6 +19,7 @@ class OpenGLRenderer:
             self.renderer = rv.Renderer(width, height)
             if not self.renderer.initialize():
                 self.renderer = None
+            self._cam = rv.CameraState()
 
     def is_available(self):
         return self.renderer is not None
@@ -43,17 +44,17 @@ class OpenGLRenderer:
         if not self.renderer: return None
         
         # 1. Preparar CameraState
-        cam = rv.CameraState()
-        cam.x, cam.y, cam.z = observer.x, observer.y, camera_params['height']
-        cam.yaw = observer.rangle + camera_params.get('yaw_off', 0.0)
-        cam.pitch = camera_params['pitch']
-        cam.roll = camera_params.get('roll', 0.0)
-        cam.focal_length = camera_params['focal_length']
-        cam.cx, cam.cy = self.width // 2, self.height // 2
-        cam.width, cam.height = self.width, self.height
-        cam.near_plane, cam.far_plane = 1.0, 2000.0
-        cam.use_fisheye = camera_params.get('enable_fisheye', True)
-        cam.use_motion_blur = camera_params.get('enable_motion_blur', True)
+        #self.cam = rv.CameraState()
+        self._cam.x, self._cam.y, self._cam.z = observer.x, observer.y, camera_params['height']
+        self._cam.yaw = observer.rangle + camera_params.get('yaw_off', 0.0)
+        self._cam.pitch = camera_params['pitch']
+        self._cam.roll = camera_params.get('roll', 0.0)
+        self._cam.focal_length = camera_params['focal_length']
+        self._cam.cx, self._cam.cy = self.width // 2, self.height // 2
+        self._cam.width, self._cam.height = self.width, self.height
+        self._cam.near_plane, self._cam.far_plane = 1.0, 2000.0
+        self._cam.use_fisheye = camera_params.get('enable_fisheye', True)
+        self._cam.use_motion_blur = camera_params.get('enable_motion_blur', True)
         
         # 2. Convertir Scene a RenderObjects de rvision
         rv_objects = []
@@ -77,7 +78,7 @@ class OpenGLRenderer:
             rv_objects.append(robj)
             
         # 3. Renderizar y recuperar frame
-        self.renderer.render(cam, rv_objects)
+        self.renderer.render(self._cam, rv_objects)
         frame = self.renderer.get_frame().reshape((self.height, self.width, 4))
         # Convertir RGBA a BGR y flipear (OpenGL es Y-up)
         return cv2.flip(cv2.cvtColor(frame, cv2.COLOR_RGBA2BGR), -1)

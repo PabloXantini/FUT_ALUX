@@ -1,7 +1,5 @@
 import pygame
 import os
-import random
-import math
 os.environ['PYGAME_HIDE_SUPPORT_PROMPT'] = "hide"
 from sandbox.game.entities import Ball, Goal, Pitch
 from sandbox.game.physics import PhysicsEngine
@@ -72,6 +70,11 @@ class GameController:
         self.ball.draw(self.screen)
 
         # 4. UI: Tablero de Puntuación y Tiempo
+        background_ui = pygame.Surface(self.screen.get_size(), pygame.SRCALPHA)
+        pygame.draw.rect(background_ui, (0, 0, 0, 100), (175, 0, 450, 100), border_radius=10)
+        pygame.draw.rect(background_ui, (0, 0, 0, 200), (175, 0, 450, 40), border_top_left_radius=10, border_top_right_radius=10)
+        self.screen.blit(background_ui, (0, 0))
+
         font = pygame.font.SysFont(None, 48)
         score_txt = font.render(f"AZUL {self.rules.score['blue']} - {self.rules.score['yellow']} AMARILLO", True, (255, 255, 255))
         self.screen.blit(score_txt, (self.width / 2 - score_txt.get_width() // 2, 50))
@@ -79,10 +82,14 @@ class GameController:
         font_small = pygame.font.SysFont(None, 32)
         mins = int(self.rules.time_elapsed // 60)
         secs = int(self.rules.time_elapsed % 60)
-        time_txt = font_small.render(f"Tiempo: {mins:02d}:{secs:02d} | Mitad {self.rules.current_half}", True, (200, 200, 200))
+        time_txt = font_small.render(f"Tiempo: {mins:02d}:{secs:02d} | Mitad {self.rules.current_half}", True, (200, 200, 255))
         self.screen.blit(time_txt, (self.width / 2 - time_txt.get_width() // 2, 10))
 
         if self.rules.match_over:
+            overlay = pygame.Surface((self.width, self.height), pygame.SRCALPHA)
+            overlay.fill((0, 0, 0, 128))
+            self.screen.blit(overlay, (0, 0))
+
             font_large = pygame.font.SysFont(None, 72)
             font_larger = pygame.font.SysFont(None, 80)
             font_small2 = pygame.font.SysFont(None, 36)
@@ -102,11 +109,15 @@ class GameController:
 
         # 5. UI: Depuración FSM
         if robots:
+            background_fsm = pygame.Surface(self.screen.get_size(), pygame.SRCALPHA)
+            pygame.draw.rect(background_fsm, (0, 0, 0, 32), (0, 490, 500, 110), border_radius=10)
+            self.screen.blit(background_fsm, (0, 0))
+            
             font_small = pygame.font.SysFont(None, 24)
             y_offset = 500
             for r in robots:
                 if r.context:
-                    color = (255, 50, 50) if r.ban_timer > 0 else (255, 255, 255)
+                    color = (255, 50, 50) if r.ban_timer > 0 else r.color
                     ban_text = f" [BANEADO {int(r.ban_timer)}s]" if r.ban_timer > 0 else ""
                     lbl = font_small.render(f"FSM {r.name}[{r.team}]: {r.context.estado_label}{ban_text}", True, color)
                     self.screen.blit(lbl, (10, y_offset))

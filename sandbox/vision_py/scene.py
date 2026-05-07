@@ -1,3 +1,4 @@
+from abc import ABC, abstractmethod
 import numpy as np
 
 class Vertex:
@@ -22,12 +23,18 @@ class RenderObject:
         self.position = [0, 0, 0] # Para primitivas
         self.size = [0, 0, 0]     # Para primitivas
 
-class Scene:
+class Scene(ABC):
     """ Centraliza todos los elementos visuales de la simulación """
     def __init__(self):
-        self.static_objects = []  # Objetos inmutables (Pasto, Porterías, Paredes)
-        self.dynamic_objects = [] # Objetos mutables (Robots, Pelota)
+        self.objects = []  # Todos los objetos (Estáticos y Dinámicos)
         self.initialized = False
 
-    def clear_dynamic(self):
-        self.dynamic_objects = []
+    @abstractmethod
+    def load(self, state):
+        """ Construye la geometría inicial y registra entidades """
+        pass
+
+    @abstractmethod
+    def update(self, state):
+        """ Actualiza los atributos de las entidades registradas """
+        pass

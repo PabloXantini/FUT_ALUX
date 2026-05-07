@@ -2,8 +2,7 @@ from __future__ import annotations
 
 from fsm import State
 from utils.aluxe3.context import RobotContext
- 
- 
+  
 class Search(State):
     """
     Ball Detected -> Align

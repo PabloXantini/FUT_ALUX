@@ -1,4 +1,5 @@
 import cv2
+import weakref
 
 # Importar rvision (C++ Backend)
 try:
@@ -16,6 +17,8 @@ class OpenGLRenderer:
             if not self.renderer.initialize():
                 self.renderer = None
             self._cam = rv.CameraState()
+            # Cache para objetos rv.RenderObject (usa el objeto de escena de Python como llave)
+            self._obj_cache = weakref.WeakKeyDictionary()
 
     def is_available(self):
         return self.renderer is not None
@@ -40,7 +43,6 @@ class OpenGLRenderer:
         if not self.renderer: return None
         
         # 1. Preparar CameraState
-        #self.cam = rv.CameraState()
         self._cam.x, self._cam.y, self._cam.z = observer.x, observer.y, camera_params['height']
         self._cam.yaw = observer.rangle + camera_params.get('yaw_off', 0.0)
         self._cam.pitch = camera_params['pitch']
@@ -54,23 +56,42 @@ class OpenGLRenderer:
         
         # 2. Convertir Scene a RenderObjects de rvision
         rv_objects = []
-        for pobj in (scene.static_objects + scene.dynamic_objects):
-            robj = rv.RenderObject()
-            robj.color = rv.Vec4(*pobj.color)
-            robj.position = rv.Vec3(*pobj.position)
-            robj.size = rv.Vec3(*pobj.size)
-            
-            if pobj.type == pobj.TYPE_MESH:
-                robj.type = rv.RenderType.MESH
-                verts = []
-                for v in pobj.vertices:
-                    verts.append(rv.Vertex(v.x, v.y, v.z, v.nx, v.ny, v.nz))
-                robj.vertices = verts
-            elif pobj.type == pobj.TYPE_CIRCLE:
-                robj.type = rv.RenderType.CIRCLE
-            elif pobj.type == pobj.TYPE_CYLINDER:
-                robj.type = rv.RenderType.CYLINDER
-            
+        for pobj in scene.objects:
+            if pobj in self._obj_cache:
+                robj = self._obj_cache[pobj]
+                # Actualizar atributos dinámicos
+                # Color
+                if len(pobj.color) == 4:
+                    robj.color.r, robj.color.g, robj.color.b, robj.color.a = pobj.color
+                else:
+                    robj.color.r, robj.color.g, robj.color.b = pobj.color
+                    robj.color.a = 1.0
+                # Posición
+                robj.position.x, robj.position.y, robj.position.z = pobj.position
+                # Tamaño
+                robj.size.x, robj.size.y, robj.size.z = pobj.size
+            else:
+                robj = rv.RenderObject()
+                # Color inicial
+                if len(pobj.color) == 4:
+                    robj.color = rv.Vec4(*pobj.color)
+                else:
+                    robj.color = rv.Vec4(*pobj.color, 1.0)
+                    
+                robj.position = rv.Vec3(*pobj.position)
+                robj.size = rv.Vec3(*pobj.size)
+                
+                if pobj.type == pobj.TYPE_MESH:
+                    robj.type = rv.RenderType.MESH
+                    verts = [rv.Vertex(v.x, v.y, v.z, v.nx, v.ny, v.nz) for v in pobj.vertices]
+                    robj.vertices = verts
+                elif pobj.type == pobj.TYPE_CIRCLE:
+                    robj.type = rv.RenderType.CIRCLE
+                elif pobj.type == pobj.TYPE_CYLINDER:
+                    robj.type = rv.RenderType.CYLINDER
+                
+                self._obj_cache[pobj] = robj
+                
             rv_objects.append(robj)
             
         # 3. Renderizar y recuperar frame

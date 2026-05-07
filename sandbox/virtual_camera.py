@@ -1,8 +1,4 @@
-import numpy as np
-import cv2
 import math
-import os
-import sys
 
 from .vision_py.renderer import Renderer
 

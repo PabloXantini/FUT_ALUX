@@ -63,7 +63,7 @@ class OpenCVRenderer:
         
         faces = []
         # --- Objetos de la Escena (Combinados) ---
-        for obj in (scene.static_objects + scene.dynamic_objects):
+        for obj in scene.objects:
             # Normalizar color a BGR
             c = obj.color
             color_bgr = (int(c[2]*255), int(c[1]*255), int(c[0]*255))
